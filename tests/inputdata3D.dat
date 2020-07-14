@@ -1,0 +1,18 @@
+Lx=
+1e-8
+Ly=
+1e-8
+Lz=
+1e-8
+Tref=
+300
+errnum=
+1E-15
+ntheta=
+4
+nphi=
+4
+max_iter=
+1000000
+needs backup=
+0

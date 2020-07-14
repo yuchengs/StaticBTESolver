@@ -1,0 +1,18 @@
+Lx=
+1E-7
+Ly=
+1E-7
+Tref=
+300
+errnum=
+1E-15
+qflux=
+1.0E5
+ntheta=
+8
+nphi=
+8
+max_iter=
+1000000
+needs backup=
+0
