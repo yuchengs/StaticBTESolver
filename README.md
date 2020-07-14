@@ -35,10 +35,9 @@ compile gmsh as a shared library.
   ```
   
 ## Installation
-Make sure you clone recursively:
 ```
-git clone --recurse-submodules https://github.com/yuchengs/StaticBTESolver.git
-cd BTESolver
+git clone https://github.com/yuchengs/StaticBTESolver.git
+cd StaticBTESolver
 ```
 Find the `CMakeLists.txt` and set `PETSC_DIR` and `PETSC_ARCH` to correct ones. Then try to generate building tools with
 ```
@@ -57,7 +56,7 @@ ctest
 
 ## Running
 After building, you can find a command line utility called `BTEcmd` under `/build/src`. This is the entry point to use
-`BTESolver` without having to compile and work with APIs.
+`StaticBTESolver` without having to compile and work with APIs.
 
 Several arguments should be provided:
 
