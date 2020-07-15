@@ -2,7 +2,6 @@
 // Created by Yucheng Shi on 7/8/20.
 //
 
-#include <memory>
 #include "StaticBTESolver/utility.h"
 
 double dot_prod(const Point& p1, const Point& p2) {

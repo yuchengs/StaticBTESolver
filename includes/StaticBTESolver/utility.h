@@ -9,6 +9,7 @@
 #include <vector>
 #include <string>
 #include <cmath>
+#include <memory>
 #include <iomanip>
 
 #define PI M_PI
