@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <fstream>
-#include "BTESolver/BTEBand.h"
+#include "StaticBTESolver/BTEBand.h"
 
 using namespace std;
 

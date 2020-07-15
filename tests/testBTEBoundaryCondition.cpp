@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <fstream>
-#include "BTESolver/BTEBoundaryCondition.h"
+#include "StaticBTESolver/BTEBoundaryCondition.h"
 
 using namespace std;
 

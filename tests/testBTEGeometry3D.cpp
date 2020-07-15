@@ -3,7 +3,7 @@
 //
 
 #include <vector>
-#include "BTESolver/BTEGeometry.h"
+#include "StaticBTESolver/BTEGeometry.h"
 
 using namespace std;
 

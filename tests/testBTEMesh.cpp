@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <fstream>
-#include "BTESolver/BTEMesh.h"
+#include "StaticBTESolver/BTEMesh.h"
 
 using namespace std;
 
