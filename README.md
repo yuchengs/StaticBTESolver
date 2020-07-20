@@ -90,11 +90,14 @@ BTEcmd -g absolute/path/to/mesh2D.mphtxt \
     -x 1e-7 -y 1e-7 -z 1e-7
 ```
 
-## TODO
- 
- 1. add 1DG?
- 1. command line argument input --> file input
- 1. how to test?
- 1. documentation (for user and for developers)
- 1. license?
+## Example Usage
+
+- `3DM3DG`: make sure you use files in `tests/3DM3DG`,
+    ```$xslt
+    ./BTEcmd -x 1e-8 -y 1e-8 -z 1e-8 -t 4 -p 4 \
+        -w 1 -d 3 -I 1000 \
+        -g /path/to/tests/3DM3DG/mesh.mphtxt \
+        -b /path/to/tests/3DM3DG/inputbc.dat \
+        -m /path/to/tests/3DM3DG/band.dat 
+    ```
 

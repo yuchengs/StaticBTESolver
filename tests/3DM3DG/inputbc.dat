@@ -1,0 +1,9 @@
+6 #number of boundaries
+
+#boundary indexs #boundary condition:1:thermalization #temperature//0,5:yzplane,1,4:xzplane,2,3:xyplane
+0 1 301
+1 32 301
+2 33 301
+3 33 301
+4 32 301
+5 1 300

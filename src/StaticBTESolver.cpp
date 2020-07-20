@@ -18,12 +18,22 @@ void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double WFACTO
     this->DM = DM;
     if (mesh->dim == 2) {
         N_cell = mesh->elements2D.size();
-        N_dir = 4 * num_theta * num_phi;
+        if (DM == 3) {
+            N_dir = 4 * num_theta * num_phi;
+        }
+        else if (DM == 2) {
+            N_dir = 4 * num_phi;
+        }
         N_face = 3;
     }
     else if (mesh->dim == 3) {
         N_cell = mesh->elements3D.size();
-        N_dir = 8 * num_theta * num_phi;
+        if (DM == 3) {
+            N_dir = 8 * num_theta * num_phi;
+        }
+        else if (DM == 2) {
+            N_dir = 4 * num_theta * num_phi;
+        }
         N_face = 4;
     }
     N_band = bands->size();
@@ -265,10 +275,17 @@ void StaticBTESolver::_get_heat_flux() {
                     if (cell_neighbor_indices[cell_index][face_index] == bc.index) {
                         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                             // TODO: check if control angle is needed
-                            heat += ee_guess[cell_index][dir_index][band_index]
-                                    * S_dot_normal_cache[band_index][dir_index][cell_index][face_index]
-                                    * cell_face_area[cell_index][face_index];
-                            //        * control_angles[dir_index];
+                            if (DM == 3 && mesh->dim == 3) {
+                                heat += ee_guess[cell_index][dir_index][band_index]
+                                        * dv_dot_normal_cache[band_index][dir_index][cell_index][face_index]
+                                        * cell_face_area[cell_index][face_index]
+                                        * control_angles[dir_index];
+                            }
+                            else {
+                                heat += ee_guess[cell_index][dir_index][band_index]
+                                        * S_dot_normal_cache[band_index][dir_index][cell_index][face_index]
+                                        * cell_face_area[cell_index][face_index];
+                            }
                         }
                         cell_length += cell_face_area[cell_index][face_index];
                     }
@@ -283,48 +300,73 @@ void StaticBTESolver::_get_heat_flux() {
 
 void StaticBTESolver::_preprocess() {
     // get_direction
-    double delta_theta = 0.5 * PI / num_theta;
-    double delta_phi = 0.5 * PI / num_phi;
-
-    std::vector<double> theta, phi(4 * num_phi, 0);
     if (DM == 2) {
-        theta.resize(num_theta, 0);
-    }
-    else if (DM == 3) {
-        theta.resize(2 * num_theta, 0);
-    }
-    else {
-        std::cout << "DM is not set properly." << std::endl;
-        exit(1);
-    }
-    theta[0] = 0.5 * delta_theta;
-    phi[0] = 0.5 * delta_phi;
-
-    for (int nt = 1; nt < theta.size(); nt++) {
-        theta[nt] = theta[nt - 1] + delta_theta;
-    }
-    for (int np = 1; np < phi.size(); np++) {
-        phi[np] = phi[np - 1] + delta_phi;
-    }
-    control_angles.resize(theta.size() * phi.size());
-    direction_vectors.reserve(theta.size() * phi.size());
-    S.reserve(theta.size() * phi.size());
-    for (int nt = 0; nt < theta.size(); nt++) {
+        double delta_phi = 0.5 * PI / num_phi;
+        std::vector<double> phi(4 * num_phi, 0);
+        phi[0] = 0.5 * delta_phi;
+        for (int np = 1; np < phi.size(); np++) {
+            phi[np] = phi[np - 1] + delta_phi;
+        }
+        control_angles.resize(phi.size());
+        direction_vectors.reserve(phi.size());
+        S.reserve(phi.size());
         for (int np = 0; np < phi.size(); np++) {
-            int nf = np + nt * 4 * num_phi;
-            control_angles[nf] = WFACTOR * 2 * sin(theta[nt]) * sin(0.5 * delta_theta) * delta_phi;
-            double x = WFACTOR * sin(phi[np]) * sin(0.5 * delta_phi) * (delta_theta - cos(2 * theta[nt]) * sin(delta_theta));
-            double y = WFACTOR * cos(phi[np]) * sin(0.5 * delta_phi) * (delta_theta - cos(2 * theta[nt]) * sin(delta_theta));
-            double z = WFACTOR * 0.5 * delta_phi * sin(2 * theta[nt]) * sin(delta_theta);
-            auto sptr = std::make_shared<Point>(x, y, z);
+            control_angles[np] = WFACTOR / phi.size();
+            double x = control_angles[np] * sin(phi[np]);
+            double y = control_angles[np] * cos(phi[np]);
+            auto sptr = std::make_shared<Point>(x, y, 0);
             S.push_back(sptr);
-
-            x = sin(theta[nt]) * sin(phi[np]);
-            y = sin(theta[nt]) * cos(phi[np]);
-            z = cos(theta[nt]);
-            auto dptr = std::make_shared<Point>(x, y, z);
+            x = sin(phi[np]);
+            y = cos(phi[np]);
+            auto dptr = std::make_shared<Point>(x, y, 0);
             direction_vectors.push_back(dptr);
         }
+    }
+    else if (DM == 3) {
+        double delta_theta = 0.5 * PI / num_theta;
+        double delta_phi = 0.5 * PI / num_phi;
+        std::vector<double> theta, phi(4 * num_phi, 0);
+        if (mesh->dim == 2) {
+            theta.resize(num_theta, 0);
+        }
+        else if (mesh->dim == 3) {
+            theta.resize(2 * num_theta, 0);
+        }
+        else {
+            std::cout << "DM is not set properly." << std::endl;
+            exit(1);
+        }
+        theta[0] = 0.5 * delta_theta;
+        phi[0] = 0.5 * delta_phi;
+        for (int np = 1; np < phi.size(); np++) {
+            phi[np] = phi[np - 1] + delta_phi;
+        }
+        for (int nt = 1; nt < theta.size(); nt++) {
+            theta[nt] = theta[nt - 1] + delta_theta;
+        }
+        control_angles.resize(theta.size() * phi.size());
+        direction_vectors.reserve(theta.size() * phi.size());
+        S.reserve(theta.size() * phi.size());
+        for (int nt = 0; nt < theta.size(); nt++) {
+            for (int np = 0; np < phi.size(); np++) {
+                int nf = np + nt * 4 * num_phi;
+                control_angles[nf] = WFACTOR * 2 * sin(theta[nt]) * sin(0.5 * delta_theta) * delta_phi;
+                double x = WFACTOR * sin(phi[np]) * sin(0.5 * delta_phi) *
+                           (delta_theta - cos(2 * theta[nt]) * sin(delta_theta));
+                double y = WFACTOR * cos(phi[np]) * sin(0.5 * delta_phi) *
+                           (delta_theta - cos(2 * theta[nt]) * sin(delta_theta));
+                double z = WFACTOR * 0.5 * delta_phi * sin(2 * theta[nt]) * sin(delta_theta);
+                auto sptr = std::make_shared<Point>(x, y, z);
+                S.push_back(sptr);
+
+                x = sin(theta[nt]) * sin(phi[np]);
+                y = sin(theta[nt]) * cos(phi[np]);
+                z = cos(theta[nt]);
+                auto dptr = std::make_shared<Point>(x, y, z);
+                direction_vectors.push_back(dptr);
+            }
+        }
+
     }
 
     // compute cell center and cell volume/area

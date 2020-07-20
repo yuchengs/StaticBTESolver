@@ -41,7 +41,7 @@ double getArea(const Point& p1, const Point& p2, const Point& p3) {
 double getArea(const std::shared_ptr<Point>& p1, const std::shared_ptr<Point>& p2, const std::shared_ptr<Point>& p3) {
     auto p31 = std::make_shared<Point>(p3->x - p1->x, p3->y - p1->y, p3->z - p1->z);
     auto p32 = std::make_shared<Point>(p3->x - p2->x, p3->y - p2->y, p3->z - p2->z);
-    return cross_prod(p31, p32)->length();
+    return 0.5 * cross_prod(p31, p32)->length();
 }
 
 double getVolume(const Point& p1, const Point& p2, const Point& p3, const Point& p4) {
