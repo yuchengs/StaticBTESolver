@@ -39,7 +39,7 @@ void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double WFACTO
     N_band = bands->size();
     cell_band_temperature = std::vector<std::vector<double>>(N_cell, std::vector<double>(N_band));
     cell_band_density = std::vector<std::vector<double>>(N_cell, std::vector<double>(N_band));
-    ee_guess = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band)));
+    ee_curr = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band)));
     cell_temperature.resize(N_cell);
 }
 
@@ -47,7 +47,7 @@ void StaticBTESolver::_get_cell_temperature(int band_index) {
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
         double e0 = 0;
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-            e0 += ee_guess[cell_index][dir_index][band_index] * control_angles[dir_index];
+            e0 += ee_curr[cell_index][dir_index][band_index] * control_angles[dir_index];
         }
         cell_band_temperature[cell_index][band_index] = e0 / (*bands)[band_index].Ctot + T_ref;
     }
@@ -125,14 +125,21 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                         // CAUTION
                         for (int dir_index_inner = 0; dir_index_inner < N_dir; dir_index_inner++) {
                             if (dv_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index] > 0) {
-                                einsum += e1_n[cell_index][dir_index_inner][band_index]
-                                          * S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
-                                          * control_angles[dir_index_inner];
-                                temp += S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
-                                        * control_angles[dir_index_inner];
+                                if (mesh->dim == 3) {
+                                    einsum += ee_prev[cell_index][dir_index_inner][band_index]
+                                              * S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
+                                              * control_angles[dir_index_inner];
+                                    temp += S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
+                                            * control_angles[dir_index_inner];
+                                }
+                                else if (mesh->dim == 2) {
+                                    einsum += ee_prev[cell_index][dir_index_inner][band_index]
+                                              * S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index];
+                                }
                             }
                         }
-                        einsum = einsum / temp;
+                        if (mesh->dim == 3) einsum = einsum / temp;
+                        else if (mesh->dim == 2) einsum = einsum / PI;
                         Re[cell_index] -= einsum * a_f_total[band_index][dir_index][cell_index][face_index];
                     }
                     else if (bc.type == 31) {
@@ -148,23 +155,23 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                         else if (mesh->dim == 3) {
                             iphi = 4 * num_phi - iphi - 1;
                         }
-                        Re[cell_index] -= e1_n[cell_index][itheta * 4 * num_phi + iphi][band_index]
-                                        * a_f_total[band_index][dir_index][cell_index][face_index];
+                        Re[cell_index] -= ee_prev[cell_index][itheta * 4 * num_phi + iphi][band_index]
+                                          * a_f_total[band_index][dir_index][cell_index][face_index];
                     }
                     else if (bc.type == 32) {
                         int itheta = dir_index / (4 * num_phi);
                         int iphi = dir_index % (4 * num_phi);
                         if (mesh->dim == 2) {
                             iphi = 4 * num_phi - iphi - 1;
-                            Re[cell_index] -= e1_n[cell_index][itheta * 4 * num_phi + iphi][band_index]
+                            Re[cell_index] -= ee_prev[cell_index][itheta * 4 * num_phi + iphi][band_index]
                                               * a_f_total[band_index][dir_index][cell_index][face_index];
                         }
                         else if (mesh->dim == 3) {
                             int ix = iphi / (2 * num_phi);
                             int isx = iphi % (2 * num_phi);
                             isx = 2 * num_phi - isx - 1;
-                            Re[cell_index] -= e1_n[cell_index][itheta * 4 * num_phi + isx + ix * 2 * num_phi][band_index]
-                                    * a_f_total[band_index][dir_index][cell_index][face_index];
+                            Re[cell_index] -= ee_prev[cell_index][itheta * 4 * num_phi + isx + ix * 2 * num_phi][band_index]
+                                              * a_f_total[band_index][dir_index][cell_index][face_index];
                         }
                     }
                     else if (bc.type == 33) {
@@ -175,8 +182,8 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                         int iz = dir_index / (4 * num_phi);
                         int isz = dir_index % (4 * num_phi);
                         iz = 2 * num_phi - iz - 1;
-                        Re[cell_index] -= e1_n[cell_index][isz + iz * 4 * num_phi][band_index]
-                                        * a_f_total[band_index][dir_index][cell_index][face_index];
+                        Re[cell_index] -= ee_prev[cell_index][isz + iz * 4 * num_phi][band_index]
+                                          * a_f_total[band_index][dir_index][cell_index][face_index];
                     }
                     else {
                         std::cout << "Boundary Condition Type " << bc.type << " not supported. Abort." << std::endl;
@@ -256,7 +263,7 @@ double StaticBTESolver::_get_margin() {
     for (int band_index = 0; band_index < N_band; band_index++){
         for (int dir_index = 0; dir_index < N_dir; dir_index++){
             for (int cell_index = 0; cell_index < N_cell; cell_index++)
-                margin += pow((e2_n[cell_index][dir_index][band_index] - e1_n[cell_index][dir_index][band_index]), 2);
+                margin += pow((ee_curr[cell_index][dir_index][band_index] - ee_prev[cell_index][dir_index][band_index]), 2);
         }
     }
     return (margin / N_band / N_cell);
@@ -276,13 +283,13 @@ void StaticBTESolver::_get_heat_flux() {
                         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                             // TODO: check if control angle is needed
                             if (DM == 3 && mesh->dim == 3) {
-                                heat += ee_guess[cell_index][dir_index][band_index]
+                                heat += ee_curr[cell_index][dir_index][band_index]
                                         * dv_dot_normal_cache[band_index][dir_index][cell_index][face_index]
                                         * cell_face_area[cell_index][face_index]
                                         * control_angles[dir_index];
                             }
                             else {
-                                heat += ee_guess[cell_index][dir_index][band_index]
+                                heat += ee_curr[cell_index][dir_index][band_index]
                                         * S_dot_normal_cache[band_index][dir_index][cell_index][face_index]
                                         * cell_face_area[cell_index][face_index];
                             }
@@ -461,23 +468,33 @@ void StaticBTESolver::_preprocess() {
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             for (int edge_index = 0; edge_index < N_face; edge_index++) {
                 // CAUTION: order
-                int v0 = mesh->elements2D[cell_index]->index[edge_index];
                 int v1 = mesh->elements2D[cell_index]->index[(edge_index + 1) % N_face];
+                int v2 = mesh->elements2D[cell_index]->index[(edge_index + 2) % N_face];
+                std::unordered_set<int> temp {v1, v2};
                 for (int neighbor_index = 0; neighbor_index < N_cell; neighbor_index++) {
                     if (cell_index == neighbor_index) continue;
-                    int neighbor_v0 = mesh->elements2D[neighbor_index]->index[0];
-                    int neighbor_v1 = mesh->elements2D[neighbor_index]->index[1];
-                    int neighbor_v2 = mesh->elements2D[neighbor_index]->index[2];
-                    if ((v0 == neighbor_v0 || v0 == neighbor_v1 || v0 == neighbor_v2)
-                        && (v1 == neighbor_v0 || v1 == neighbor_v1 || v1 == neighbor_v2)) {
+                    int* neighbor_ptr = mesh->elements2D[neighbor_index]->index;
+                    int hit = 0;
+                    for (int i = 0; i < N_face; i++) {
+                        if (temp.find(neighbor_ptr[i]) != temp.end()) {
+                            hit++;
+                        }
+                    }
+                    if (hit >= 2) {
                         cell_neighbor_indices[cell_index][edge_index] = neighbor_index;
                         break;
                     }
                 }
                 if (cell_neighbor_indices[cell_index][edge_index] == 0) {
                     for (auto& seg_ptr : mesh->elements1D) {
-                        if ((v0 == seg_ptr->index[0] || v0 == seg_ptr->index[1])
-                            && (v1 == seg_ptr->index[0] || v1 == seg_ptr->index[1])) {
+                        int hit = 0;
+                        for (int& i : seg_ptr->index) {
+                            if (temp.find(i) != temp.end()) {
+                                hit++;
+                            }
+                        }
+
+                        if (hit >= 2) {
                             cell_neighbor_indices[cell_index][edge_index] = - seg_ptr->entity_index - 1;
                             break;
                         }
@@ -487,7 +504,7 @@ void StaticBTESolver::_preprocess() {
         }
     }
     else if (mesh->dim == 3) {
-        cell_neighbor_indices.resize(N_cell, std::vector<int>(4));
+        cell_neighbor_indices.resize(N_cell, std::vector<int>(N_face));
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             for (int face_index = 0; face_index < N_face; face_index++) {
                 int v1 = mesh->elements3D[cell_index]->index[(face_index + 1) % N_face];
@@ -498,7 +515,7 @@ void StaticBTESolver::_preprocess() {
                     if (cell_index == neighbor_index) continue;
                     int* neighbor_ptr = mesh->elements3D[neighbor_index]->index;
                     int hit = 0;
-                    for (int i = 0; i < 4; i++) {
+                    for (int i = 0; i < N_face; i++) {
                         if (temp.find(neighbor_ptr[i]) != temp.end()) hit++;
                     }
                     if (hit >= 3) {
@@ -514,7 +531,7 @@ void StaticBTESolver::_preprocess() {
                                 hit++;
                             }
                         }
-                        if (hit == 3) {
+                        if (hit >= 3) {
                             cell_neighbor_indices[cell_index][face_index] = - tri_ptr->entity_index - 1;
                             break;
                         }
@@ -538,11 +555,10 @@ void StaticBTESolver::_iteration(int max_iter) {
               << "num_phi: " << num_phi << std::endl << std::endl;
 
     // load inputee or set 0 to start over
-    ee_guess = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band, 0)));
+    ee_curr = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band, 0)));
     for (int iter_index = 0; iter_index < max_iter; iter_index++) {
-        e1_n = ee_guess;
-        ee_guess = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band, 0)));
-        e2_n = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band, 0)));
+        ee_prev = ee_curr;
+        ee_curr = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band, 0)));
         for (int band_index = 0; band_index < N_band; band_index++) {
             for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                 // reconstruct Ke
@@ -555,8 +571,7 @@ void StaticBTESolver::_iteration(int max_iter) {
                 }
                 std::vector<double> sol = _solve_matrix(Ke, Re);
                 for (int cell_index = 0; cell_index < N_cell; cell_index++) {
-                    ee_guess[cell_index][dir_index][band_index] = sol[cell_index];
-                    e2_n[cell_index][dir_index][band_index] = sol[cell_index];
+                    ee_curr[cell_index][dir_index][band_index] = sol[cell_index];
                 }
             }
             _get_cell_temperature(band_index);
@@ -564,7 +579,7 @@ void StaticBTESolver::_iteration(int max_iter) {
         _recover_temperature();
 
         double margin = _get_margin();
-        std::cout << "Iteration #" << iter_index << "\t Margin: " << margin << std::endl;
+        std::cout << "Iteration #" << iter_index << "\t Margin per band per cell: " << margin << std::endl;
 
         if (margin <= 0.0001) {
             std::cout << std::endl;

@@ -100,4 +100,12 @@ BTEcmd -g absolute/path/to/mesh2D.mphtxt \
         -b /path/to/tests/3DM3DG/inputbc.dat \
         -m /path/to/tests/3DM3DG/band.dat 
     ```
+- `3DM2DG`: make sure you use files in `tests/3DM2DG`,
+    ```$xslt
+    ./BTEcmd -x 1e-8 -y 1e-8 -z 0 -t 4 -p 4 \
+        -w 2 -d 3 -I 1000 \
+        -g /path/to/tests/3DM2DG/mesh.mphtxt \
+        -b /path/to/tests/3DM2DG/inputbc.dat \
+        -m /path/to/tests/3DM2DG/band.dat 
+    ```
 

@@ -48,7 +48,7 @@ class StaticBTESolver {
     vector4D<double> S_dot_normal_cache;
     vector4D<double> a_f_total;
     std::vector<double> Ke_serialized;
-    vector3D<double> ee_guess, e1_n, e2_n;
+    vector3D<double> ee_curr, ee_prev;
     vector2D<double> bc_band_heat_flux;
     std::vector<double> bc_heat_flux;
 
