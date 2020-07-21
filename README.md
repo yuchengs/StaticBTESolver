@@ -116,3 +116,33 @@ BTEcmd -g path/to/mesh2D.mphtxt \
         -m path/to/tests/2DM2DG/band.dat
     ```
     Note this configuration is slow, maybe try `x`, `y` with 1e-8 for faster convergence.
+    
+## git tips (for developers, remove before release)
+
+For a (relatively) complete guide of how git works I recommend [this one](https://rogerdudler.github.io/git-guide/).
+
+
+1. This repo contains a submodule, which means you need to clone recursively:
+    ```$xslt
+    git clone --recurse-submodules https://github.com/yuchengs/StaticBTESolver.git
+    ```
+   If you have already clone this repo without the `--recurse-submodules` option, try to fix with:
+   ```$xslt
+   git submodule update --init
+   ```
+2. Standard workflow before you updating this repo:
+    1. first, you want to make sure you do not have unstaged/uncommitted changes in this repo. You can always reset to the latest
+       local commit by `git reset --hard HEAD`.
+    2. Next, in case someone else update this repo, you want to fetch the latest changes by `git pull`.
+    3. update files
+3. Standard workflow for updating this repo is the following:
+    1. update files in this repo.
+    2. use `git add [filename1] [filename2] ...` to stage the files you changed. You may also use regular expression.
+       For example, you may use `git add *` to stage all files. Caution that you should _NOT_ add any build files. If 
+       you plan to use `git add *`, you may want to check how `.gitignore` works.
+    3. commit your changes by `git commit -m [commit message]`. Commit is like a checkpoint, or like the SAVE button
+       when you play video games. In fact, your repo history is just a series of commits. You can rollback to any commit 
+       latter.
+    4. Now that you have committed your changes, you may want to "publish" your changes by `git push` so your collaborators 
+       can see it.
+       
