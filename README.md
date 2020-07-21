@@ -108,4 +108,12 @@ BTEcmd -g absolute/path/to/mesh2D.mphtxt \
         -b /path/to/tests/3DM2DG/inputbc.dat \
         -m /path/to/tests/3DM2DG/band.dat 
     ```
-
+- `2DM2DG`: make sure you use files in `tests/2DM2DG`,
+    ```
+    ./BTEcmd -x 1e-4 -y 1e-4 -z 0 -d 2 -w 4pi
+        -t 8 -p 8 -I 1000000 
+        -b /path/to/tests/2DM2DG/inputbc.dat 
+        -g /path/to/tests/2DM2DG/mesh.mphtxt 
+        -m /path/to/tests/2DM2DG/band.dat
+    ```
+    Note this configuration is slow, maybe try `x`, `y` with 1e-8 for faster convergence.

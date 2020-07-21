@@ -81,7 +81,13 @@ int main (int argc, char **argv) {
                 break;
             }
             case 'w': {
-                WFACTOR = stod(optarg);
+                std::string str(optarg);
+                if (str.back() >= '0' && str.back() <= '9') {
+                    WFACTOR = stod(str);
+                }
+                else {
+                    WFACTOR = stod(str) * PI;
+                }
                 break;
             }
             case 'T': {

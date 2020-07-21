@@ -260,10 +260,13 @@ std::vector<double> StaticBTESolver::_solve_matrix(vector2D<double>& Ke, std::ve
 
 double StaticBTESolver::_get_margin() {
     double margin = 0;
-    for (int band_index = 0; band_index < N_band; band_index++){
-        for (int dir_index = 0; dir_index < N_dir; dir_index++){
-            for (int cell_index = 0; cell_index < N_cell; cell_index++)
-                margin += pow((ee_curr[cell_index][dir_index][band_index] - ee_prev[cell_index][dir_index][band_index]), 2);
+    for (int band_index = 0; band_index < N_band; band_index++) {
+        for (int dir_index = 0; dir_index < N_dir; dir_index++) {
+
+            for (int cell_index = 0; cell_index < N_cell; cell_index++) {
+                margin += pow((ee_curr[cell_index][dir_index][band_index] - ee_prev[cell_index][dir_index][band_index]),
+                              2);
+            }
         }
     }
     return (margin / N_band / N_cell);
@@ -418,9 +421,9 @@ void StaticBTESolver::_preprocess() {
         cell_face_area.resize(N_cell, std::vector<double>(N_face));
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             for (int edge_index = 0; edge_index < N_face; edge_index++) {
-                auto p0 = mesh->meshPts[mesh->elements2D[cell_index]->index[edge_index % 3]];
-                auto p1 = mesh->meshPts[mesh->elements2D[cell_index]->index[(edge_index + 1) % 3]];
-                auto p2 = mesh->meshPts[mesh->elements2D[cell_index]->index[(edge_index + 2) % 3]];
+                auto p0 = mesh->meshPts[mesh->elements2D[cell_index]->index[edge_index % N_face]];
+                auto p1 = mesh->meshPts[mesh->elements2D[cell_index]->index[(edge_index + 1) % N_face]];
+                auto p2 = mesh->meshPts[mesh->elements2D[cell_index]->index[(edge_index + 2) % N_face]];
                 cell_face_area[cell_index][edge_index] = getLength(p1, p2);
                 auto p01 = std::make_shared<Point>(p0->x - p1->x, p0->y - p1->y);
                 auto norm = std::make_shared<Point>(p2->y - p1->y, p1->x - p2->x);
