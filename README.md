@@ -36,7 +36,7 @@ compile gmsh as a shared library.
   
 ## Installation
 ```
-git clone https://github.com/yuchengs/StaticBTESolver.git
+git clone --recurse-submodules https://github.com/yuchengs/StaticBTESolver.git
 cd StaticBTESolver
 ```
 Find the `CMakeLists.txt` and set `PETSC_DIR` and `PETSC_ARCH` to correct ones. Then try to generate building tools with
