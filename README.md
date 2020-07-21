@@ -64,8 +64,7 @@ Several arguments should be provided:
     COMSOL native file format (with extension `.mphtxt`). Note that a `.geo` file only specifies
     geometry information while a `.mphtxt` specifies mesh information. Internally, a `.geo` file is passed to 
     `BTEGeometry`, which meshes the geometry and exports to a `BTEMesh` object. In contrast, a `.mphtxt`
-    file is passed to the constructor of `BTEMesh` directly. Also, you will have to provide an __absolute
-    path__ to the file.
+    file is passed to the constructor of `BTEMesh` directly. 
 - `-m [string]` (required): provide a file specifying the bands information in the similar format of `Input-dispersion-relation-fp.dat`.
 - `-b [string]` (depends): provide a file specifying the boundary conditions of each
     boundary. The file format is similar to `inputbc2D.dat`. If your geometry information is provided with a `.geo` file, this argument
@@ -83,9 +82,9 @@ Several arguments should be provided:
 
 Some sample input files are in the `/tests` directory. For example, you may try
 ```$xslt
-BTEcmd -g absolute/path/to/mesh2D.mphtxt \
-    -m absolute/path/to/Input-dispersion-relation-fp.dat \
-    -b absolute/path/to/Inputbc2D.dat \
+BTEcmd -g path/to/mesh2D.mphtxt \
+    -m path/to/Input-dispersion-relation-fp.dat \
+    -b path/to/Inputbc2D.dat \
     -d 2 -t 8 -p 8 -w 2 \
     -x 1e-7 -y 1e-7 -z 1e-7
 ```
@@ -96,24 +95,24 @@ BTEcmd -g absolute/path/to/mesh2D.mphtxt \
     ```$xslt
     ./BTEcmd -x 1e-8 -y 1e-8 -z 1e-8 -t 4 -p 4 \
         -w 1 -d 3 -I 1000 \
-        -g /path/to/tests/3DM3DG/mesh.mphtxt \
-        -b /path/to/tests/3DM3DG/inputbc.dat \
-        -m /path/to/tests/3DM3DG/band.dat 
+        -g path/to/tests/3DM3DG/mesh.mphtxt \
+        -b path/to/tests/3DM3DG/inputbc.dat \
+        -m path/to/tests/3DM3DG/band.dat 
     ```
 - `3DM2DG`: make sure you use files in `tests/3DM2DG`,
     ```$xslt
     ./BTEcmd -x 1e-8 -y 1e-8 -z 0 -t 4 -p 4 \
         -w 2 -d 3 -I 1000 \
-        -g /path/to/tests/3DM2DG/mesh.mphtxt \
-        -b /path/to/tests/3DM2DG/inputbc.dat \
-        -m /path/to/tests/3DM2DG/band.dat 
+        -g path/to/tests/3DM2DG/mesh.mphtxt \
+        -b path/to/tests/3DM2DG/inputbc.dat \
+        -m path/to/tests/3DM2DG/band.dat 
     ```
 - `2DM2DG`: make sure you use files in `tests/2DM2DG`,
     ```
     ./BTEcmd -x 1e-4 -y 1e-4 -z 0 -d 2 -w 4pi
         -t 8 -p 8 -I 1000000 
-        -b /path/to/tests/2DM2DG/inputbc.dat 
-        -g /path/to/tests/2DM2DG/mesh.mphtxt 
-        -m /path/to/tests/2DM2DG/band.dat
+        -b path/to/tests/2DM2DG/inputbc.dat 
+        -g path/to/tests/2DM2DG/mesh.mphtxt 
+        -m path/to/tests/2DM2DG/band.dat
     ```
     Note this configuration is slow, maybe try `x`, `y` with 1e-8 for faster convergence.

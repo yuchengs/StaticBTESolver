@@ -59,3 +59,10 @@ target_include_directories(testBTEGeometry3D PUBLIC ../includes)
 target_link_libraries(testBTEGeometry3D PRIVATE BTESolver)
 
 add_test(NAME testBTEGeometry3D COMMAND testBTEGeometry3D)
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/2DM2DG
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/3DM2DG
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/3DM3DG
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
