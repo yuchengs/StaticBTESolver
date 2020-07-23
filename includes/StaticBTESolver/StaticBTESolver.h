@@ -33,6 +33,7 @@ class StaticBTESolver {
 
     // intermediate variables
     int N_cell, N_dir, N_band, N_face;
+    double solid_angle;
     std::vector<double> control_angles;
     std::vector<std::shared_ptr<Point>> S;
     std::vector<std::shared_ptr<Point>> direction_vectors;

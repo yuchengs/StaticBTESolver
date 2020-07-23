@@ -129,5 +129,22 @@ BTEMesh::BTEMesh(std::ifstream& inFile, double L_x, double L_y, double L_z) {
     }
 }
 
+BTEMesh::BTEMesh(int N_cell, double L_x) {
+    this->L_x = L_x;
+    this->L_y = 0;
+    this->L_z = 0;
+    this->dim = 1;
+    meshPts.reserve(N_cell + 1);
+    for (int cell_index = 0; cell_index < N_cell + 1; cell_index++) {
+        auto ptr = std::make_shared<Point>(L_x / N_cell * cell_index);
+        meshPts.push_back(std::move(ptr));
+    }
+    elements1D.reserve(N_cell);
+    for (int cell_index = 0; cell_index < N_cell; cell_index++) {
+        auto ptr = std::make_shared<Segment>(cell_index, cell_index + 1);
+        elements1D.push_back(std::move(ptr));
+    }
+}
+
 
 

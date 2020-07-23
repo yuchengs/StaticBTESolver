@@ -1,0 +1,5 @@
+2 #number of boundaries
+
+#boundary indexs #boundary condition:1:thermalization #temperature
+0 1 310
+1 1 290

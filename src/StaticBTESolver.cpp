@@ -16,6 +16,19 @@ void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double WFACTO
     this->WFACTOR = WFACTOR;
     this->T_ref = T_ref;
     this->DM = DM;
+    this->solid_angle = 4 * PI;
+    if (mesh->dim == 1) {
+        this->T_ref = 0; // need documentation
+        N_cell = mesh->elements1D.size();
+        if (DM == 3) {
+            N_dir = num_theta * num_phi;
+        }
+        else if (DM == 2) {
+            N_dir = num_theta;
+            this->solid_angle = 2 * PI;
+        }
+        N_face = 2;
+    }
     if (mesh->dim == 2) {
         N_cell = mesh->elements2D.size();
         if (DM == 3) {
@@ -64,14 +77,16 @@ void StaticBTESolver::_recover_temperature() {
     }
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
         for (int band_index = 0; band_index < N_band; band_index++) {
-            cell_band_density[cell_index][band_index] = (*bands)[band_index].Ctot / (4 * PI) * (cell_temperature[cell_index] - T_ref);
+            cell_band_density[cell_index][band_index] = (*bands)[band_index].Ctot / (solid_angle) * (cell_temperature[cell_index] - T_ref);
         }
     }
 }
 
 void StaticBTESolver::_get_const_coefficient() {
     dv_dot_normal_cache.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
-    S_dot_normal_cache.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
+    if (mesh->dim > 1) {
+        S_dot_normal_cache.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
+    }
     a_f_total.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
     for (int band_index = 0; band_index < N_band; band_index++) {
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
@@ -79,10 +94,18 @@ void StaticBTESolver::_get_const_coefficient() {
             for (int cell_index = 0; cell_index < N_cell; cell_index++) {
                 for (int face_index = 0; face_index < N_face; face_index++) {
                     double area = cell_face_area[cell_index][face_index];
-                    dv_dot_normal_cache[band_index][dir_index][cell_index].push_back(dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]));
-                    S_dot_normal_cache[band_index][dir_index][cell_index].push_back(dot_prod(S[dir_index], cell_face_normal[cell_index][face_index]));
-                    double temp = (*bands)[band_index].group_velocity * (*bands)[band_index].relaxation_time
-                                  * S_dot_normal_cache[band_index][dir_index][cell_index][face_index] * area;
+                    dv_dot_normal_cache[band_index][dir_index][cell_index].push_back(
+                            dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]));
+                    if (mesh->dim > 1) {
+                        S_dot_normal_cache[band_index][dir_index][cell_index].push_back(dot_prod(S[dir_index], cell_face_normal[cell_index][face_index]));
+                    }
+                    double temp = (*bands)[band_index].group_velocity * (*bands)[band_index].relaxation_time * area;
+                    if (mesh->dim > 1) {
+                        temp *= S_dot_normal_cache[band_index][dir_index][cell_index][face_index];
+                    }
+                    else {
+                        temp *= dv_dot_normal_cache[band_index][dir_index][cell_index][face_index];
+                    }
                     if (dv_dot_normal_cache[band_index][dir_index][cell_index][face_index] >= 0) {
                         Ke[cell_index][cell_index] += temp;
                     } else if (cell_neighbor_indices[cell_index][face_index] >= 0) {
@@ -90,7 +113,12 @@ void StaticBTESolver::_get_const_coefficient() {
                     }
                     a_f_total[band_index][dir_index][cell_index].push_back(temp);
                 }
-                Ke[cell_index][cell_index] += cell_volume[cell_index] * control_angles[dir_index];
+                if (mesh->dim > 1) {
+                    Ke[cell_index][cell_index] += cell_volume[cell_index] * control_angles[dir_index];
+                }
+                else {
+                    Ke[cell_index][cell_index] += cell_volume[cell_index];
+                }
             }
             for (int i = 0; i < N_cell; i++) {
                 for (int j = 0; j < N_cell; j++) {
@@ -115,14 +143,13 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                 if (dv_dot_normal_cache[band_index][dir_index][cell_index][face_index] >= 0) continue;
                 if (cell_neighbor_indices[cell_index][face_index] == bc.index) {
                     if (bc.type == 1) {
-                        Re[cell_index] -= (*bands)[band_index].Ctot / (4 * PI)
+                        Re[cell_index] -= (*bands)[band_index].Ctot / (solid_angle)
                                           * (bc.temperature - T_ref)
                                           * a_f_total[band_index][dir_index][cell_index][face_index];
-                    }
-                    else if (bc.type == 2) {
+
+                    } else if (bc.type == 2) {
                         double einsum = 0;
                         double temp = 0;
-                        // CAUTION
                         for (int dir_index_inner = 0; dir_index_inner < N_dir; dir_index_inner++) {
                             if (dv_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index] > 0) {
                                 if (mesh->dim == 3) {
@@ -131,18 +158,20 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                                               * control_angles[dir_index_inner];
                                     temp += S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
                                             * control_angles[dir_index_inner];
-                                }
-                                else if (mesh->dim == 2) {
+                                } else if (mesh->dim == 2) {
                                     einsum += ee_prev[cell_index][dir_index_inner][band_index]
                                               * S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index];
+                                } else {
+                                    einsum += ee_prev[cell_index][dir_index_inner][band_index]
+                                              * dv_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
+                                              * control_angles[dir_index_inner];
                                 }
                             }
                         }
                         if (mesh->dim == 3) einsum = einsum / temp;
-                        else if (mesh->dim == 2) einsum = einsum / PI;
+                        else einsum = einsum / PI;
                         Re[cell_index] -= einsum * a_f_total[band_index][dir_index][cell_index][face_index];
-                    }
-                    else if (bc.type == 31) {
+                    } else if (bc.type == 31) {
                         int itheta = dir_index / (4 * num_phi);
                         int iphi = dir_index % (4 * num_phi);
                         if (mesh->dim == 2) {
@@ -151,32 +180,38 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                             } else {
                                 iphi = 2 * num_phi - iphi - 1;
                             }
-                        }
-                        else if (mesh->dim == 3) {
+                        } else if (mesh->dim == 3) {
                             iphi = 4 * num_phi - iphi - 1;
+                        }
+                        else {
+                            std::cout << "Boundary type 31 not supported for DG 1" << std::endl;
+                            exit(1);
                         }
                         Re[cell_index] -= ee_prev[cell_index][itheta * 4 * num_phi + iphi][band_index]
                                           * a_f_total[band_index][dir_index][cell_index][face_index];
-                    }
-                    else if (bc.type == 32) {
+                    } else if (bc.type == 32) {
                         int itheta = dir_index / (4 * num_phi);
                         int iphi = dir_index % (4 * num_phi);
                         if (mesh->dim == 2) {
                             iphi = 4 * num_phi - iphi - 1;
                             Re[cell_index] -= ee_prev[cell_index][itheta * 4 * num_phi + iphi][band_index]
                                               * a_f_total[band_index][dir_index][cell_index][face_index];
-                        }
-                        else if (mesh->dim == 3) {
+                        } else if (mesh->dim == 3) {
                             int ix = iphi / (2 * num_phi);
                             int isx = iphi % (2 * num_phi);
                             isx = 2 * num_phi - isx - 1;
-                            Re[cell_index] -= ee_prev[cell_index][itheta * 4 * num_phi + isx + ix * 2 * num_phi][band_index]
-                                              * a_f_total[band_index][dir_index][cell_index][face_index];
+                            Re[cell_index] -=
+                                    ee_prev[cell_index][itheta * 4 * num_phi + isx + ix * 2 * num_phi][band_index]
+                                    * a_f_total[band_index][dir_index][cell_index][face_index];
                         }
-                    }
-                    else if (bc.type == 33) {
-                        if (mesh->dim == 2) {
-                            std::cout << "Boundary Condition Type " << bc.type << " not supported. Abort." << std::endl;
+                        else {
+                            std::cout << "Boundary type 31 not supported for DG 1" << std::endl;
+                            exit(1);
+                        }
+                    } else if (bc.type == 33) {
+                        if (mesh->dim < 3) {
+                            std::cout << "Boundary Condition Type " << bc.type << " not supported. Abort."
+                                      << std::endl;
                             exit(1);
                         }
                         int iz = dir_index / (4 * num_phi);
@@ -184,15 +219,21 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                         iz = 2 * num_phi - iz - 1;
                         Re[cell_index] -= ee_prev[cell_index][isz + iz * 4 * num_phi][band_index]
                                           * a_f_total[band_index][dir_index][cell_index][face_index];
-                    }
-                    else {
+                    } else {
                         std::cout << "Boundary Condition Type " << bc.type << " not supported. Abort." << std::endl;
                         exit(1);
                     }
                 }
             }
         }
-        Re[cell_index] += cell_band_density[cell_index][band_index] * cell_volume[cell_index] * control_angles[dir_index];
+        if (mesh->dim != 1) {
+            Re[cell_index] +=
+                    cell_band_density[cell_index][band_index] * cell_volume[cell_index] * control_angles[dir_index];
+        }
+        else {
+            Re[cell_index] +=
+                    cell_band_density[cell_index][band_index] * cell_volume[cell_index];
+        }
     }
     return Re;
 }
@@ -291,6 +332,11 @@ void StaticBTESolver::_get_heat_flux() {
                                         * cell_face_area[cell_index][face_index]
                                         * control_angles[dir_index];
                             }
+                            else if (mesh->dim == 1) {
+                                heat += ee_curr[cell_index][dir_index][band_index]
+                                        * dv_dot_normal_cache[band_index][dir_index][cell_index][face_index]
+                                        * control_angles[dir_index];
+                            }
                             else {
                                 heat += ee_curr[cell_index][dir_index][band_index]
                                         * S_dot_normal_cache[band_index][dir_index][cell_index][face_index]
@@ -301,7 +347,12 @@ void StaticBTESolver::_get_heat_flux() {
                     }
                 }
             }
-            bc_band_heat_flux[bc_index][band_index] = heat / cell_length * (*bands)[band_index].group_velocity;
+            if (mesh->dim != 1) {
+                bc_band_heat_flux[bc_index][band_index] = heat / cell_length * (*bands)[band_index].group_velocity;
+            }
+            else {
+                bc_band_heat_flux[bc_index][band_index] = heat * (*bands)[band_index].group_velocity;
+            }
             bc_heat_flux[bc_index] += bc_band_heat_flux[bc_index][band_index];
         }
         std::cout << "heat flux of Boundary Condition #" << -1 - bcs->boundaryConditions[bc_index].index << ": " << bc_heat_flux[bc_index] << std::endl;
@@ -311,78 +362,136 @@ void StaticBTESolver::_get_heat_flux() {
 void StaticBTESolver::_preprocess() {
     // get_direction
     if (DM == 2) {
-        double delta_phi = 0.5 * PI / num_phi;
-        std::vector<double> phi(4 * num_phi, 0);
-        phi[0] = 0.5 * delta_phi;
-        for (int np = 1; np < phi.size(); np++) {
-            phi[np] = phi[np - 1] + delta_phi;
-        }
-        control_angles.resize(phi.size());
-        direction_vectors.reserve(phi.size());
-        S.reserve(phi.size());
-        for (int np = 0; np < phi.size(); np++) {
-            control_angles[np] = WFACTOR / phi.size();
-            double x = control_angles[np] * sin(phi[np]);
-            double y = control_angles[np] * cos(phi[np]);
-            auto sptr = std::make_shared<Point>(x, y, 0);
-            S.push_back(sptr);
-            x = sin(phi[np]);
-            y = cos(phi[np]);
-            auto dptr = std::make_shared<Point>(x, y, 0);
-            direction_vectors.push_back(dptr);
-        }
-    }
-    else if (DM == 3) {
-        double delta_theta = 0.5 * PI / num_theta;
-        double delta_phi = 0.5 * PI / num_phi;
-        std::vector<double> theta, phi(4 * num_phi, 0);
-        if (mesh->dim == 2) {
-            theta.resize(num_theta, 0);
-        }
-        else if (mesh->dim == 3) {
-            theta.resize(2 * num_theta, 0);
-        }
-        else {
-            std::cout << "DM is not set properly." << std::endl;
-            exit(1);
-        }
-        theta[0] = 0.5 * delta_theta;
-        phi[0] = 0.5 * delta_phi;
-        for (int np = 1; np < phi.size(); np++) {
-            phi[np] = phi[np - 1] + delta_phi;
-        }
-        for (int nt = 1; nt < theta.size(); nt++) {
-            theta[nt] = theta[nt - 1] + delta_theta;
-        }
-        control_angles.resize(theta.size() * phi.size());
-        direction_vectors.reserve(theta.size() * phi.size());
-        S.reserve(theta.size() * phi.size());
-        for (int nt = 0; nt < theta.size(); nt++) {
+        if (mesh->dim >= 2) {
+            double delta_phi = 0.5 * PI / num_phi;
+            std::vector<double> phi(4 * num_phi, 0);
+            phi[0] = 0.5 * delta_phi;
+            for (int np = 1; np < phi.size(); np++) {
+                phi[np] = phi[np - 1] + delta_phi;
+            }
+            control_angles.resize(phi.size());
+            direction_vectors.reserve(phi.size());
+            S.reserve(phi.size());
             for (int np = 0; np < phi.size(); np++) {
-                int nf = np + nt * 4 * num_phi;
-                control_angles[nf] = WFACTOR * 2 * sin(theta[nt]) * sin(0.5 * delta_theta) * delta_phi;
-                double x = WFACTOR * sin(phi[np]) * sin(0.5 * delta_phi) *
-                           (delta_theta - cos(2 * theta[nt]) * sin(delta_theta));
-                double y = WFACTOR * cos(phi[np]) * sin(0.5 * delta_phi) *
-                           (delta_theta - cos(2 * theta[nt]) * sin(delta_theta));
-                double z = WFACTOR * 0.5 * delta_phi * sin(2 * theta[nt]) * sin(delta_theta);
-                auto sptr = std::make_shared<Point>(x, y, z);
+                control_angles[np] = WFACTOR / phi.size();
+                double x = control_angles[np] * sin(phi[np]);
+                double y = control_angles[np] * cos(phi[np]);
+                auto sptr = std::make_shared<Point>(x, y, 0);
                 S.push_back(sptr);
-
-                x = sin(theta[nt]) * sin(phi[np]);
-                y = sin(theta[nt]) * cos(phi[np]);
-                z = cos(theta[nt]);
-                auto dptr = std::make_shared<Point>(x, y, z);
+                x = sin(phi[np]);
+                y = cos(phi[np]);
+                auto dptr = std::make_shared<Point>(x, y, 0);
                 direction_vectors.push_back(dptr);
             }
         }
+        else {
+            control_angles.resize(N_dir);
+            direction_vectors.reserve(N_dir);
+            std::vector<double> cost, sint;
+            std::vector<double> W;
+            std::vector<double> gauss = GaussIntegrationPoints(0, PI, N_dir);;
+            for (int dir_index = 0; dir_index < N_dir; dir_index++) {
+                cost.push_back(cos(gauss[2 * dir_index]));
+                W.push_back(gauss[2 * dir_index + 1]);
+                sint.push_back(pow(1 - cost[dir_index] * cost[dir_index], 0.5));
+            }
+            for (int dir_index = 0; dir_index < N_dir; dir_index++) {
+                control_angles[dir_index] = W[dir_index] * 2;
+                auto dptr = std::make_shared<Point>(cost[dir_index], sint[dir_index], 0);
+                direction_vectors.push_back(dptr);
+            }
+            this->WFACTOR = 0;
+            for (int dir_index = 0; dir_index < N_dir; dir_index++) {
+                this->WFACTOR += control_angles[dir_index];
+            }
+        }
+    }
+    else if (DM == 3) {
+        if (mesh->dim >= 2) {
+            double delta_theta = 0.5 * PI / num_theta;
+            double delta_phi = 0.5 * PI / num_phi;
+            std::vector<double> theta, phi(4 * num_phi, 0);
+            if (mesh->dim == 2) {
+                theta.resize(num_theta, 0);
+            } else if (mesh->dim == 3) {
+                theta.resize(2 * num_theta, 0);
+            } else {
+                std::cout << "DM is not set properly." << std::endl;
+                exit(1);
+            }
+            theta[0] = 0.5 * delta_theta;
+            phi[0] = 0.5 * delta_phi;
+            for (int np = 1; np < phi.size(); np++) {
+                phi[np] = phi[np - 1] + delta_phi;
+            }
+            for (int nt = 1; nt < theta.size(); nt++) {
+                theta[nt] = theta[nt - 1] + delta_theta;
+            }
+            control_angles.resize(theta.size() * phi.size());
+            direction_vectors.reserve(theta.size() * phi.size());
+            S.reserve(theta.size() * phi.size());
+            for (int nt = 0; nt < theta.size(); nt++) {
+                for (int np = 0; np < phi.size(); np++) {
+                    int nf = np + nt * 4 * num_phi;
+                    control_angles[nf] = WFACTOR * 2 * sin(theta[nt]) * sin(0.5 * delta_theta) * delta_phi;
+                    double x = WFACTOR * sin(phi[np]) * sin(0.5 * delta_phi) *
+                               (delta_theta - cos(2 * theta[nt]) * sin(delta_theta));
+                    double y = WFACTOR * cos(phi[np]) * sin(0.5 * delta_phi) *
+                               (delta_theta - cos(2 * theta[nt]) * sin(delta_theta));
+                    double z = WFACTOR * 0.5 * delta_phi * sin(2 * theta[nt]) * sin(delta_theta);
+                    auto sptr = std::make_shared<Point>(x, y, z);
+                    S.push_back(sptr);
 
+                    x = sin(theta[nt]) * sin(phi[np]);
+                    y = sin(theta[nt]) * cos(phi[np]);
+                    z = cos(theta[nt]);
+                    auto dptr = std::make_shared<Point>(x, y, z);
+                    direction_vectors.push_back(dptr);
+                }
+            }
+        }
+        else {
+            control_angles.resize(N_dir);
+            direction_vectors.reserve(N_dir);
+            std::vector<double> cost, cosp, sint, sinp;
+            std::vector<double> W, Wphi;
+            std::vector<double> gauss = GaussIntegrationPoints(-1, 1, num_theta);
+            std::vector<double> gaussp = GaussIntegrationPoints(-PI, PI, num_phi);
+            for (int i = 0; i < num_theta; i++) {
+                cost.push_back(gauss[2 * i]);
+                W.push_back(gauss[2 * i + 1]);
+                sint.push_back(pow(1 - cost[i] * cost[i], 0.5));
+            }
+            for (int i = 0; i < num_phi; i++) {
+                cosp.push_back(gaussp[2 * i] / PI);
+                Wphi.push_back(gaussp[2 * i + 1]);
+                sinp.push_back(pow(1 - cosp[i] * cosp[i], 0.5));
+            }
+            for (int i = 0; i< num_theta; i++) {
+                for (int j = 0; j < num_phi; j++) {
+                    control_angles[i * num_phi + j] = W[i] * Wphi[j];
+                    auto dptr = std::make_shared<Point>(cost[i], sint[i] * cosp[j], sint[i] * sinp[j]);
+                    direction_vectors.push_back(std::move(dptr));
+                }
+            }
+            this->WFACTOR = 0;
+            for (int dir_index = 0; dir_index < N_dir; dir_index++) {
+                this->WFACTOR += control_angles[dir_index];
+            }
+        }
     }
 
     // compute cell center and cell volume/area
     cell_centers.reserve(N_cell);
     cell_volume.reserve(N_cell);
-    if (mesh->dim == 2) {
+    if (mesh->dim == 1) {
+        for (int cell_index = 0; cell_index < N_cell; cell_index++) {
+            auto ptr = std::make_shared<Point>(mesh->L_x / N_cell * (cell_index + 0.5));
+            cell_centers.push_back(std::move(ptr));
+            cell_volume.push_back(mesh->L_x / N_cell);
+        }
+    }
+    else if (mesh->dim == 2) {
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             auto p1 = mesh->meshPts[mesh->elements2D[cell_index]->index[0]];
             auto p2 = mesh->meshPts[mesh->elements2D[cell_index]->index[1]];
@@ -416,9 +525,17 @@ void StaticBTESolver::_preprocess() {
     }
 
     // compute cell face normal vector and cell face area
-    if (mesh->dim == 2) {
-        cell_face_normal.resize(N_cell, std::vector<std::shared_ptr<Point>>(N_face));
-        cell_face_area.resize(N_cell, std::vector<double>(N_face));
+    cell_face_normal.resize(N_cell, std::vector<std::shared_ptr<Point>>(N_face));
+    cell_face_area.resize(N_cell, std::vector<double>(N_face));
+    if (mesh->dim == 1) {
+        for (int cell_index = 0; cell_index < N_cell; cell_index++) {
+            cell_face_area[cell_index][0] = 1;
+            cell_face_area[cell_index][1] = 1;
+            cell_face_normal[cell_index][0] = std::make_shared<Point>(-1);
+            cell_face_normal[cell_index][1] = std::make_shared<Point>(1);
+        }
+    }
+    else if (mesh->dim == 2) {
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             for (int edge_index = 0; edge_index < N_face; edge_index++) {
                 auto p0 = mesh->meshPts[mesh->elements2D[cell_index]->index[edge_index % N_face]];
@@ -436,8 +553,6 @@ void StaticBTESolver::_preprocess() {
         }
     }
     else if (mesh->dim == 3) {
-        cell_face_normal.resize(N_cell, std::vector<std::shared_ptr<Point>>(N_face));
-        cell_face_area.resize(N_cell, std::vector<double>(N_face));
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             for (int face_index = 0; face_index < N_face; face_index++) {
                 auto p0 = mesh->meshPts[mesh->elements3D[cell_index]->index[face_index % 4]];
@@ -466,11 +581,20 @@ void StaticBTESolver::_preprocess() {
     }
 
     // compute neighbor cell index
-    if (mesh->dim == 2) {
-        cell_neighbor_indices.resize(N_cell, std::vector<int>(N_face));
+    cell_neighbor_indices.resize(N_cell, std::vector<int>(N_face));
+    if (mesh->dim == 1) {
+        for (int cell_index = 0; cell_index < N_cell; cell_index++) {
+            cell_neighbor_indices[cell_index][0] = cell_index - 1;
+            cell_neighbor_indices[cell_index][1] = cell_index + 1;
+        }
+        // left boundary hard coded to boundary condition 0
+        // right boundary hard coded to boundary condition 1
+        cell_neighbor_indices[0][0] = - 0 - 1;
+        cell_neighbor_indices[N_cell - 1][1] = - 1 - 1;
+    }
+    else if (mesh->dim == 2) {
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             for (int edge_index = 0; edge_index < N_face; edge_index++) {
-                // CAUTION: order
                 int v1 = mesh->elements2D[cell_index]->index[(edge_index + 1) % N_face];
                 int v2 = mesh->elements2D[cell_index]->index[(edge_index + 2) % N_face];
                 std::unordered_set<int> temp {v1, v2};
@@ -507,7 +631,6 @@ void StaticBTESolver::_preprocess() {
         }
     }
     else if (mesh->dim == 3) {
-        cell_neighbor_indices.resize(N_cell, std::vector<int>(N_face));
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             for (int face_index = 0; face_index < N_face; face_index++) {
                 int v1 = mesh->elements3D[cell_index]->index[(face_index + 1) % N_face];
@@ -567,6 +690,7 @@ void StaticBTESolver::_iteration(int max_iter) {
                 // reconstruct Ke
                 vector2D<double> Ke(N_cell, std::vector<double>(N_cell, 0));
                 std::vector<double> Re = _get_coefficient(dir_index, band_index);
+                // TODO #1 (possible optimization) Ke_serialized
                 for (int i = 0; i < Ke_serialized.size() / 5; i++) {
                     if (Ke_serialized[5 * i] == band_index && Ke_serialized[5 * i + 1] == dir_index) {
                         Ke[Ke_serialized[5 * i + 2]][Ke_serialized[5 * i + 3]] = Ke_serialized[5 * i + 4];

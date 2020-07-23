@@ -41,7 +41,7 @@ int main (int argc, char **argv) {
     };
 
     string geofileName, bandfileName, bfileName;
-    double L_x = 1, L_y = 1, L_z = 1;
+    double L_x = 0, L_y = 0, L_z = 0;
 
     int DM = 3, ntheta = 4, nphi = 4;
     double T_ref = 300, WFACTOR = 1;
@@ -119,14 +119,26 @@ int main (int argc, char **argv) {
 
     BTEMesh* mesh;
     BTEGeometry* geo;
-    string ext = geofileName.substr(geofileName.find_last_of('.') + 1);
-    if (ext == "geo") {
-        geo = new BTEGeometry(geofileName, L_x, L_y, L_z);
-        mesh = geo->export_mesh();
+    string ext;
+    int N_cell = 0;
+    auto p = geofileName.find_last_of('.');
+    if (p == string::npos) {
+        N_cell = stoi(geofileName);
+        mesh = new BTEMesh(N_cell, L_x);
     }
-    else if (ext == "mphtxt") {
-        ifstream geofile(geofileName);
-        mesh = new BTEMesh(geofile, L_x, L_y, L_z);
+    else {
+        ext = geofileName.substr(p + 1);
+        if (ext == "geo") {
+            geo = new BTEGeometry(geofileName, L_x, L_y, L_z);
+            mesh = geo->export_mesh();
+        } else if (ext == "mphtxt") {
+            ifstream geofile(geofileName);
+            mesh = new BTEMesh(geofile, L_x, L_y, L_z);
+        }
+        else {
+            cout << "file format not supported" << endl;
+            exit(1);
+        }
     }
 
     ifstream bandFile(bandfileName);
@@ -138,7 +150,7 @@ int main (int argc, char **argv) {
         bcs = new BTEBoundaryCondition(bcFile);
     }
     else {
-        if (ext != "geo") {
+        if (p == string::npos || ext != "geo") {
             cerr << "Must specify boundary conditions" << endl;
             exit(1);
         }
@@ -146,9 +158,9 @@ int main (int argc, char **argv) {
         cout << geo->boundary_indices.size() << " boundaries." << endl;
         bcs = new BTEBoundaryCondition();
         bcs->boundaryConditions.reserve(geo->boundary_indices.size());
-        for (int i = 0; i < geo->boundary_indices.size(); i++) {
-            cout << "Boundary #" << geo->boundary_indices[i] << ":" << endl;
-            BoundaryCondition bc(- geo->boundary_indices[i] - 1);
+        for (int boundary_index : geo->boundary_indices) {
+            cout << "Boundary #" << boundary_index << ":" << endl;
+            BoundaryCondition bc(- boundary_index - 1);
             cout << "Type: ";
             cin >> bc.type;
             cout << "Temperature: ";

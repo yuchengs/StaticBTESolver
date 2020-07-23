@@ -13,7 +13,7 @@
 #include <iomanip>
 
 #define PI M_PI
-
+#define eps pow(2,-52)
 
 struct Point {
     double x, y, z;
@@ -127,5 +127,7 @@ struct Band {
         return os;
     }
 };
+
+std::vector<double> GaussIntegrationPoints(double a, double b, int N);
 
 #endif //BTESOLVER_UTILITY_H

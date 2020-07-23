@@ -25,6 +25,7 @@ public:
     std::vector<std::shared_ptr<Tetrahedron>> elements3D;
     BTEMesh() = default;
     BTEMesh(std::ifstream& inFile, double L_x, double L_y = 0, double L_z = 0);
+    BTEMesh(int N_cell, double L_x);
     BTEMesh(const BTEMesh& mesh) = delete;
 };
 

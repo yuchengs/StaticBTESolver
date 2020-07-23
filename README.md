@@ -61,7 +61,8 @@ After building, you can find a command line utility called `BTEcmd` under `/buil
 Several arguments should be provided:
 
 - `-g [string]` (required): provide a file with either gmsh native file format (with extension `.geo`) or 
-    COMSOL native file format (with extension `.mphtxt`). Note that a `.geo` file only specifies
+    COMSOL native file format (with extension `.mphtxt`), or an integer specifying the number of cells if in the setting
+    of 1DG. Note that a `.geo` file only specifies
     geometry information while a `.mphtxt` specifies mesh information. Internally, a `.geo` file is passed to 
     `BTEGeometry`, which meshes the geometry and exports to a `BTEMesh` object. In contrast, a `.mphtxt`
     file is passed to the constructor of `BTEMesh` directly. 
@@ -76,9 +77,9 @@ Several arguments should be provided:
 - `-w [float]` (optional): Wfactor. Default at 1.
 - `-T [float]` (optional): reference temperature. Default at 300.
 - `-I [integer]` (optional): maximum number of iteration. Default at 10000.
-- `-x [float]` (optional): x-axis scale. Default at 1.0.
-- `-y [float]` (optional): y-axis scale. Default at 1.0.
-- `-z [float]` (optional): z-axis scale. Default at 1.0.
+- `-x [float]` (optional): x-axis scale. Default at 0.
+- `-y [float]` (optional): y-axis scale. Default at 0.
+- `-z [float]` (optional): z-axis scale. Default at 0.
 
 Some sample input files are in the `/tests` directory. For example, you may try
 ```$xslt
@@ -91,21 +92,21 @@ BTEcmd -g path/to/mesh2D.mphtxt \
 
 ## Example Usage
 
-- `3DM3DG`: make sure you use files in `tests/3DM3DG`,
+- `2DM1DG`: make sure you use files in `tests/2DM1DG`,
     ```$xslt
-    ./BTEcmd -x 1e-8 -y 1e-8 -z 1e-8 -t 4 -p 4 \
-        -w 1 -d 3 -I 1000 \
-        -g path/to/tests/3DM3DG/mesh.mphtxt \
-        -b path/to/tests/3DM3DG/inputbc.dat \
-        -m path/to/tests/3DM3DG/band.dat 
+    ./BTEcmd -x 1e-8 -t 8 -p 1 \
+        -d 2 -I 1000 \
+        -g 100 \
+        -b path/to/tests/2DM1DG/inputbc.dat \
+        -m path/to/tests/2DM1DG/band.dat     
     ```
-- `3DM2DG`: make sure you use files in `tests/3DM2DG`,
+- `3DM1DG`: make sure you use files in `tests/3DM1DG`,
     ```$xslt
-    ./BTEcmd -x 1e-8 -y 1e-8 -z 0 -t 4 -p 4 \
-        -w 2 -d 3 -I 1000 \
-        -g path/to/tests/3DM2DG/mesh.mphtxt \
-        -b path/to/tests/3DM2DG/inputbc.dat \
-        -m path/to/tests/3DM2DG/band.dat 
+    ./BTEcmd -x 1e-8 -t 8 -p 1 \
+        -d 3 -I 1000 \
+        -g 100 \
+        -b path/to/tests/3DM1DG/inputbc.dat \
+        -m path/to/tests/3DM1DG/band.dat     
     ```
 - `2DM2DG`: make sure you use files in `tests/2DM2DG`,
     ```
@@ -116,6 +117,22 @@ BTEcmd -g path/to/mesh2D.mphtxt \
         -m path/to/tests/2DM2DG/band.dat
     ```
     Note this configuration is slow, maybe try `x`, `y` with 1e-8 for faster convergence.
+- `3DM2DG`: make sure you use files in `tests/3DM2DG`,
+    ```$xslt
+    ./BTEcmd -x 1e-8 -y 1e-8 -z 0 -t 4 -p 4 \
+        -w 2 -d 3 -I 1000 \
+        -g path/to/tests/3DM2DG/mesh.mphtxt \
+        -b path/to/tests/3DM2DG/inputbc.dat \
+        -m path/to/tests/3DM2DG/band.dat 
+    ```
+- `3DM3DG`: make sure you use files in `tests/3DM3DG`,
+    ```$xslt
+    ./BTEcmd -x 1e-8 -y 1e-8 -z 1e-8 -t 4 -p 4 \
+        -w 1 -d 3 -I 1000 \
+        -g path/to/tests/3DM3DG/mesh.mphtxt \
+        -b path/to/tests/3DM3DG/inputbc.dat \
+        -m path/to/tests/3DM3DG/band.dat 
+    ```
     
 ## git tips (for developers, remove before release)
 
