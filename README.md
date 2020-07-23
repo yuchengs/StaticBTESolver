@@ -90,7 +90,7 @@ BTEcmd -g path/to/mesh2D.mphtxt \
     -x 1e-7 -y 1e-7 -z 1e-7
 ```
 
-## Example Usage
+## Example Usage and Testing
 
 - `2DM1DG`: make sure you use files in `tests/2DM1DG`,
     ```$xslt
@@ -133,7 +133,20 @@ BTEcmd -g path/to/mesh2D.mphtxt \
         -b path/to/tests/3DM3DG/inputbc.dat \
         -m path/to/tests/3DM3DG/band.dat 
     ```
-    
+  
+(__For Developers__): For all those examples, correct results are cached. So for example, you may compare your result from the correct one 
+using the following for `3DM3DG`:
+```$xslt
+    ./BTEcmd -x 1e-8 -y 1e-8 -z 1e-8 -t 4 -p 4 \
+        -w 1 -d 3 -I 1000 \
+        -g path/to/tests/3DM3DG/mesh.mphtxt \
+        -b path/to/tests/3DM3DG/inputbc.dat \
+        -m path/to/tests/3DM3DG/band.dat > outfile
+    diff outfile path/to/tests/3DM3DG/3DM3DG.sol
+```
+If there is no output, you are fine. Otherwise your output is incorrect.
+
+
 ## git tips (for developers, remove before release)
 
 For a (relatively) complete guide of how git works I recommend [this one](https://rogerdudler.github.io/git-guide/).
