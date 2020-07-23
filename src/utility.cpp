@@ -67,7 +67,7 @@ std::vector<double> AbsSub(std::vector<double>& a, std::vector<double>& b) {
 }
 
 double max(const std::vector<double>& arr) {
-    return *max_element(arr.begin(), arr.end());
+    return *std::max_element(arr.begin(), arr.end());
 }
 
 // TODO: need to rewrite

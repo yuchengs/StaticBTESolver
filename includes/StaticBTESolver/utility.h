@@ -11,6 +11,7 @@
 #include <cmath>
 #include <memory>
 #include <iomanip>
+#include <algorithm>
 
 #define PI M_PI
 #define eps pow(2,-52)
