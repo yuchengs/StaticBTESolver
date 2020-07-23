@@ -11,9 +11,6 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     include(CTest)
 endif()
 
-set(PETSC_DIR "/Users/yuchengs/Soft/petsc-3.13.3")
-set(PETSC_ARCH "arch-darwin-c-debug")
-
 find_package(PETSc REQUIRED)
 find_package(Gmsh REQUIRED)
 
