@@ -3,6 +3,7 @@
 //
 
 #include "StaticBTESolver/StaticBTESolver.h"
+#include "petscksp.h"
 
 StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBand* bands) {
     this->mesh = mesh;

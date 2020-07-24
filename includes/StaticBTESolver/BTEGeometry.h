@@ -9,7 +9,6 @@
 #include <cassert>
 #include <unordered_map>
 #include "BTEMesh.h"
-#include "gmsh.h"
 
 class BTEGeometry {
     double L_x, L_y, L_z;
