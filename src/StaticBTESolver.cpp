@@ -3,12 +3,37 @@
 //
 
 #include "StaticBTESolver/StaticBTESolver.h"
+#ifdef USE_GPU
+#include <mpi.h>
+#include <cuda_runtime.h>
+#else
 #include "petscksp.h"
+#endif
 
 StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBand* bands) {
     this->mesh = mesh;
     this->bcs = bcs;
     this->bands = bands;
+#ifdef USE_GPU
+    MPI_Init(NULL, NULL);
+
+    int numprocs;
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    int myrank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+    if(myrank == 0) {
+        cout << "There are " << numprocs <<" MPI processes running \n" << endl;
+    }
+    cout<<"THE MPI RANK IS :" << myrank << endl;
+    int deviceCount;
+    cudaGetDeviceCount(&deviceCount);
+    int device_id = myrank % deviceCount;
+    cudaSetDevice(device_id);
+    cout << "Map MPI [" << myrank << "/" << numprocs << "] onto  device [" <<
+          device_id << "/" << deviceCount << "]" << endl;
+
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif
 }
 
 void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double WFACTOR, double T_ref) {
