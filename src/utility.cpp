@@ -58,21 +58,17 @@ double getVolume(const std::shared_ptr<Point>& p1, const std::shared_ptr<Point>&
     return 1.0 / 6 * abs(det);
 }
 
-std::vector<double> AbsSub(std::vector<double>& a, std::vector<double>& b) {
-    std::vector<double> sub;
+double margin(std::vector<double>& a, std::vector<double>& b) {
+    double res = 0;
     for (int i = 0; i < a.size(); i++) {
-        sub.push_back(abs(a[i] - b[i]));
+        res = std::max(std::abs(a[i] - b[i]), res);
     }
-    return sub;
-}
-
-double max(const std::vector<double>& arr) {
-    return *std::max_element(arr.begin(), arr.end());
+    return res;
 }
 
 // TODO: need to rewrite
 std::vector<double> GaussIntegrationPoints(double a, double b, int N) {
-    N = N-1;
+    N = N - 1;
     int N1 = N + 1;
     int N2 = N + 2;
     std::vector<double> gauss,y,y0;
@@ -90,26 +86,26 @@ std::vector<double> GaussIntegrationPoints(double a, double b, int N) {
     for (int i = 0; i < N1; i++) {
         y0.push_back(2);
     }
-    while (max(AbsSub(y, y0)) > eps) {
+    while (margin(y, y0) > eps) {
         for (int i=0; i<N1; i++) {
             L[i][1]=y[i];
         }
-        for (int j=2; j<N1+1; j++) {
-            for (int i=0; i<N1; i++) {
+        for (int j = 2; j < N1 + 1; j++) {
+            for (int i=0; i < N1; i++) {
                 L[i][j]=((2*j-1)*y[i]*L[i][j-1]-(j-1)*L[i][j-2])/j;
             }
         }
-        for (int i=0; i<N1; i++) {
+        for (int i = 0; i < N1; i++) {
             Lp[i]=(N2)*( L[i][N1-1]-y[i]*L[i][N2-1])/(1-y[i]*y[i]);
             y0[i]=y[i];
             y[i]=y0[i]-L[i][N2-1]/Lp[i];
         }
     }
-    for (int i=0; i<N1; i++) {
+    for (int i = 0; i < N1; i++) {
         gauss.push_back((a*(1-y[i])+b*(1+y[i]))/2);
         gauss.push_back((b-a)/((1-y[i]*y[i])*Lp[i]*Lp[i])*N2/N1*N2/N1);
     }
-    for (int i=0; i<N1; i++) {
+    for (int i = 0; i < N1; i++) {
         delete [] L[i];
     }
     delete [] L;
