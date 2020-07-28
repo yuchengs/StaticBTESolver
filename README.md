@@ -42,7 +42,7 @@ cd StaticBTESolver
 Find the `CMakeLists.txt` and set `PETSC_DIR` and `PETSC_ARCH` to correct ones. Then try to generate building tools with
 ```
 mkdir build
-cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release
+cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release -DPETSC_DIR=... -DPETSC_ARCH=...
 ```
 To build:
 ```

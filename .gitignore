@@ -1,3 +1,6 @@
 build/
 cmake-build-debug/
 .idea/
+includes/viennacl/*
+*.out
+Tempcell.dat

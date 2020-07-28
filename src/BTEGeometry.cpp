@@ -3,6 +3,7 @@
 //
 
 #include "StaticBTESolver/BTEGeometry.h"
+#include "gmsh.h"
 
 BTEGeometry::BTEGeometry(const std::string& fileName, double L_x, double L_y, double L_z) {
     auto esc = fileName.find_last_of('.');

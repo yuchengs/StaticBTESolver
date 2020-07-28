@@ -2,7 +2,21 @@
 // Created by Yucheng Shi on 7/8/20.
 //
 
-#include "StaticBTESolver/StaticBTESolver.h"
+#include "StaticBTESolver.h"
+#ifdef USE_GPU
+#include <mpi.h>
+#include <cuda_runtime.h>
+#include "scalar.hpp"
+#include "vector.hpp"
+#include "compressed_matrix.hpp"
+#include "linalg/prod.hpp"
+#include "linalg/jacobi_precond.hpp"
+#include "linalg/cg.hpp"
+#include "linalg/bicgstab.hpp"
+#include "linalg/gmres.hpp"
+#else
+#include "petscksp.h"
+#endif
 
 StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBand* bands) {
     this->mesh = mesh;

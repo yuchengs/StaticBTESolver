@@ -13,8 +13,6 @@
 #include "StaticBTESolver/BTEBand.h"
 #include "StaticBTESolver/BTEBoundaryCondition.h"
 
-#include "petscksp.h"
-
 
 class StaticBTESolver {
     // cache
