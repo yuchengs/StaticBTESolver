@@ -1,13 +1,6 @@
 find_package(Gmsh REQUIRED)
 
 if (USE_GPU)
-    include(CheckLanguage)
-    check_language(CUDA)
-    if (CMAKE_CUDA_COMPILER)
-        enable_language(CUDA)
-    else()
-        message(FATAL_ERROR "No CUDA support")
-    endif()
     find_package(MPI)
     find_package(CUDAToolkit)
 else()
@@ -43,14 +36,15 @@ target_compile_features(BTEGeometry PUBLIC cxx_std_14)
 
 add_library(StaticBTESolver StaticBTESolver.cpp "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver/StaticBTESolver.h")
 if (USE_GPU)
-    target_include_directories(StaticBTESolver PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes")
+    target_include_directories(StaticBTESolver PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver"
+                                               PRIVATE "${StaticBTESolver_SOURCE_DIR}/includes/viennacl")
     set_target_properties(StaticBTESolver
             PROPERTIES
             CUDA_SEPERATABLE_COMPILATION on)
     target_link_libraries(StaticBTESolver PUBLIC BTEBand BTEBoundaryCondition BTEMesh BTEGeometry
             PRIVATE MPI::MPI_CXX CUDA::cudart CUDA::cusolver CUDA::cusparse CUDA::cublas)
 else()
-    target_include_directories(StaticBTESolver PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes"
+    target_include_directories(StaticBTESolver PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver"
                                                PRIVATE "${PETSC_INCLUDES}")
     target_link_libraries(StaticBTESolver PUBLIC BTEBand BTEBoundaryCondition BTEMesh BTEGeometry
                                           PRIVATE "${PETSC_LIBRARIES}")
