@@ -102,10 +102,11 @@ void StaticBTESolver::_get_const_coefficient() {
         S_dot_normal_cache.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
     }
     a_f_total.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
+    Ke_serialized.resize(N_band, vector2D<double>(N_dir, std::vector<double>()));
     for (int band_index = 0; band_index < N_band; band_index++) {
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-            vector2D<double> Ke(N_cell, std::vector<double>(N_cell, 0));
             for (int cell_index = 0; cell_index < N_cell; cell_index++) {
+                std::vector<double> Ke(N_cell, 0);
                 for (int face_index = 0; face_index < N_face; face_index++) {
                     double area = cell_face_area[cell_index][face_index];
                     dv_dot_normal_cache[band_index][dir_index][cell_index].push_back(
@@ -121,27 +122,29 @@ void StaticBTESolver::_get_const_coefficient() {
                         temp *= dv_dot_normal_cache[band_index][dir_index][cell_index][face_index];
                     }
                     if (dv_dot_normal_cache[band_index][dir_index][cell_index][face_index] >= 0) {
-                        Ke[cell_index][cell_index] += temp;
+                        Ke[cell_index] += temp;
                     } else if (cell_neighbor_indices[cell_index][face_index] >= 0) {
-                        Ke[cell_index][cell_neighbor_indices[cell_index][face_index]] += temp;
+                        Ke[cell_neighbor_indices[cell_index][face_index]] += temp;
                     }
                     a_f_total[band_index][dir_index][cell_index].push_back(temp);
                 }
                 if (mesh->dim > 1) {
-                    Ke[cell_index][cell_index] += cell_volume[cell_index] * control_angles[dir_index];
+                    Ke[cell_index] += cell_volume[cell_index] * control_angles[dir_index];
                 }
                 else {
-                    Ke[cell_index][cell_index] += cell_volume[cell_index];
+                    Ke[cell_index] += cell_volume[cell_index];
                 }
-            }
-            for (int i = 0; i < N_cell; i++) {
-                for (int j = 0; j < N_cell; j++) {
-                    if (Ke[i][j] != 0) {
-                        Ke_serialized.push_back(band_index);
-                        Ke_serialized.push_back(dir_index);
-                        Ke_serialized.push_back(i);
-                        Ke_serialized.push_back(j);
-                        Ke_serialized.push_back(Ke[i][j]);
+
+                if (Ke[cell_index] != 0) {
+                    Ke_serialized[band_index][dir_index].push_back(cell_index);
+                    Ke_serialized[band_index][dir_index].push_back(cell_index);
+                    Ke_serialized[band_index][dir_index].push_back(Ke[cell_index]);
+                }
+                for (int face_index = 0; face_index < N_face; face_index++) {
+                    if (cell_neighbor_indices[cell_index][face_index] >= 0) {
+                        Ke_serialized[band_index][dir_index].push_back(cell_index);
+                        Ke_serialized[band_index][dir_index].push_back(cell_neighbor_indices[cell_index][face_index]);
+                        Ke_serialized[band_index][dir_index].push_back(Ke[cell_neighbor_indices[cell_index][face_index]]);
                     }
                 }
             }
@@ -705,10 +708,8 @@ void StaticBTESolver::_iteration(int max_iter) {
                 vector2D<double> Ke(N_cell, std::vector<double>(N_cell, 0));
                 std::vector<double> Re = _get_coefficient(dir_index, band_index);
                 // TODO #1 (possible optimization) Ke_serialized
-                for (int i = 0; i < Ke_serialized.size() / 5; i++) {
-                    if (Ke_serialized[5 * i] == band_index && Ke_serialized[5 * i + 1] == dir_index) {
-                        Ke[Ke_serialized[5 * i + 2]][Ke_serialized[5 * i + 3]] = Ke_serialized[5 * i + 4];
-                    }
+                for (int i = 0; i < Ke_serialized[band_index][dir_index].size() / 3; i++) {
+                    Ke[Ke_serialized[band_index][dir_index][3 * i]][Ke_serialized[band_index][dir_index][3 * i + 1]] = Ke_serialized[band_index][dir_index][3 * i + 2];
                 }
                 std::vector<double> sol = _solve_matrix(Ke, Re);
                 for (int cell_index = 0; cell_index < N_cell; cell_index++) {
