@@ -47,7 +47,7 @@ double getArea(const std::shared_ptr<Point>& p1, const std::shared_ptr<Point>& p
 double getVolume(const Point& p1, const Point& p2, const Point& p3, const Point& p4) {
     Point p1p(p1 - p4), p2p(p2 - p4), p3p(p3 - p4);
     double det = p1p.x * (p2p.y * p3p.z - p2p.z * p3p.y) - p2p.x * (p1p.y * p3p.z - p1p.z * p3p.y) + p3p.x * (p1p.y * p2p.z - p1p.z * p2p.y);
-    return 1.0 / 6 * abs(det);
+    return 1.0 / 6 * std::abs(det);
 }
 
 double getVolume(const std::shared_ptr<Point>& p1, const std::shared_ptr<Point>& p2, const std::shared_ptr<Point>& p3, const std::shared_ptr<Point>& p4) {
@@ -55,7 +55,7 @@ double getVolume(const std::shared_ptr<Point>& p1, const std::shared_ptr<Point>&
     auto p2p = std::make_shared<Point>(p2->x - p4->x, p2->y - p4->y, p2->z - p4->z);
     auto p3p = std::make_shared<Point>(p3->x - p4->x, p3->y - p4->y, p3->z - p4->z);
     double det = p1p->x * (p2p->y * p3p->z - p2p->z * p3p->y) - p2p->x * (p1p->y * p3p->z - p1p->z * p3p->y) + p3p->x * (p1p->y * p2p->z - p1p->z * p2p->y);
-    return 1.0 / 6 * abs(det);
+    return 1.0 / 6 * std::abs(det);
 }
 
 double margin(std::vector<double>& a, std::vector<double>& b) {

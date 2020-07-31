@@ -322,7 +322,7 @@ double StaticBTESolver::_get_margin() {
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
 
             for (int cell_index = 0; cell_index < N_cell; cell_index++) {
-                margin += pow((ee_curr[cell_index][dir_index][band_index] - ee_prev[cell_index][dir_index][band_index]),
+                margin += std::pow((ee_curr[cell_index][dir_index][band_index] - ee_prev[cell_index][dir_index][band_index]),
                               2);
             }
         }
@@ -410,7 +410,7 @@ void StaticBTESolver::_preprocess() {
             for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                 cost.push_back(cos(gauss[2 * dir_index]));
                 W.push_back(gauss[2 * dir_index + 1]);
-                sint.push_back(pow(1 - cost[dir_index] * cost[dir_index], 0.5));
+                sint.push_back(std::pow(1 - cost[dir_index] * cost[dir_index], 0.5));
             }
             for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                 control_angles[dir_index] = W[dir_index] * 2;
@@ -477,12 +477,12 @@ void StaticBTESolver::_preprocess() {
             for (int i = 0; i < num_theta; i++) {
                 cost.push_back(gauss[2 * i]);
                 W.push_back(gauss[2 * i + 1]);
-                sint.push_back(pow(1 - cost[i] * cost[i], 0.5));
+                sint.push_back(std::pow(1 - cost[i] * cost[i], 0.5));
             }
             for (int i = 0; i < num_phi; i++) {
                 cosp.push_back(gaussp[2 * i] / PI);
                 Wphi.push_back(gaussp[2 * i + 1]);
-                sinp.push_back(pow(1 - cosp[i] * cosp[i], 0.5));
+                sinp.push_back(std::pow(1 - cosp[i] * cosp[i], 0.5));
             }
             for (int i = 0; i< num_theta; i++) {
                 for (int j = 0; j < num_phi; j++) {
@@ -533,7 +533,8 @@ void StaticBTESolver::_preprocess() {
             cell_centers.push_back(std::move(ptr));
             // FIXME: can be optimized to avoid creating temp object
             // possible fix: implement getVolume for shared pointer
-            cell_volume.push_back(getVolume(*p1, *p2, *p3, *p4));
+            double temp = getVolume(*p1, *p2, *p3, *p4);
+            cell_volume.push_back(temp);
         }
     }
     else {
