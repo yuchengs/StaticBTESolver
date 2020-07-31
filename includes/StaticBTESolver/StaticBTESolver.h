@@ -46,7 +46,13 @@ class StaticBTESolver {
     vector4D<double> dv_dot_normal_cache;
     vector4D<double> S_dot_normal_cache;
     vector4D<double> a_f_total;
+#ifdef USE_GPU
+    vector2D<unsigned int*> csrRowPtr;
+    vector2D<unsigned int*> csrColInd;
+    vector2D<double*> csrVal;
+#else
     vector3D<double> Ke_serialized;
+#endif
     vector3D<double> ee_curr, ee_prev;
     vector2D<double> bc_band_heat_flux;
     std::vector<double> bc_heat_flux;

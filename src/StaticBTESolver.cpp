@@ -102,9 +102,25 @@ void StaticBTESolver::_get_const_coefficient() {
         S_dot_normal_cache.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
     }
     a_f_total.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
+
+#ifdef USE_GPU
+    csrRowPtr.resize(N_band, std::vector<unsigned int*>(N_dir));
+    csrColInd.resize(N_band, std::vector<unsigned int*>(N_dir));
+    csrVal.resize(N_band, std::vector<double*>(N_dir));
+#else
     Ke_serialized.resize(N_band, vector2D<double>(N_dir, std::vector<double>()));
+#endif
+
     for (int band_index = 0; band_index < N_band; band_index++) {
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
+
+#ifdef USE_GPU
+            std::vector<unsigned int> csrRowPtr_stl;
+            csrRowPtr_stl.push_back(0);
+            std::vector<unsigned int> csrColInd_stl;
+            std::vector<double> csrVal_stl;
+#endif
+
             for (int cell_index = 0; cell_index < N_cell; cell_index++) {
                 std::vector<double> Ke(N_cell, 0);
                 for (int face_index = 0; face_index < N_face; face_index++) {
@@ -135,6 +151,22 @@ void StaticBTESolver::_get_const_coefficient() {
                     Ke[cell_index] += cell_volume[cell_index];
                 }
 
+#ifdef USE_GPU
+                std::vector<int> temp_indices;
+                for (int face_index = 0; face_index < N_face; face_index++) {
+                    if (cell_neighbor_indices[cell_index][face_index] >= 0 && Ke[cell_neighbor_indices[cell_index][face_index]] != 0) {
+                        temp_indices.push_back(cell_neighbor_indices[cell_index][face_index]);
+                    }
+                }
+                if (Ke[cell_index] != 0) temp_indices.push_back(cell_index);
+                std::sort(temp_indices.begin(), temp_indices.end());
+
+                for (int index : temp_indices) {
+                    csrColInd_stl.push_back(index);
+                    csrVal_stl.push_back(Ke[index]);
+                }
+                csrRowPtr_stl.push_back(csrRowPtr_stl.back() + temp_indices.size());
+#else
                 if (Ke[cell_index] != 0) {
                     Ke_serialized[band_index][dir_index].push_back(cell_index);
                     Ke_serialized[band_index][dir_index].push_back(cell_index);
@@ -147,7 +179,19 @@ void StaticBTESolver::_get_const_coefficient() {
                         Ke_serialized[band_index][dir_index].push_back(Ke[cell_neighbor_indices[cell_index][face_index]]);
                     }
                 }
+#endif
             }
+#ifdef USE_GPU
+            unsigned int* csrRowPtr_c = new double[csrRowPtr_stl.size()];
+            std::copy(csrRowPtr_stl.begin(), csrRowPtr_stl.end(), csrRowPtr_c);
+            unsigned int* csrColInd_c = new double[csrColInd_stl.size()];
+            std::copy(csrColInd_stl.begin(), csrColInd_stl.end(), csrColInd_c);
+            double* csrVal_c = new double[csrVal_stl.size()];
+            std::copy(csrVal_stl.begin(), csrVal_stl.end(), csrVal_c);
+            csrRowPtr[band_index][dir_index] = csrRowPtr_c;
+            csrColInd[band_index][dir_index] = csrColInd_c;
+            csrVal[band_index][dir_index] = csrVal_c;
+#endif
         }
     }
 }
@@ -705,14 +749,20 @@ void StaticBTESolver::_iteration(int max_iter) {
         ee_curr = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band, 0)));
         for (int band_index = 0; band_index < N_band; band_index++) {
             for (int dir_index = 0; dir_index < N_dir; dir_index++) {
+                std::vector<double> Re = _get_coefficient(dir_index, band_index);
+#ifdef USE_GPU
+                int nnz = csrRowPtr[band_index][dir_index][N_cell];
+                viennacl::compressed_matrix<ScalarType> Ke(csrRowPtr[band_index][dir_index], csrColInd[band_index][dir_index], csrVal[band_index][dir_index], N_cell, N_cell, nnz);
+// TODO HERE
+#else
                 // reconstruct Ke
                 vector2D<double> Ke(N_cell, std::vector<double>(N_cell, 0));
-                std::vector<double> Re = _get_coefficient(dir_index, band_index);
                 // TODO #1 (possible optimization) Ke_serialized
                 for (int i = 0; i < Ke_serialized[band_index][dir_index].size() / 3; i++) {
                     Ke[Ke_serialized[band_index][dir_index][3 * i]][Ke_serialized[band_index][dir_index][3 * i + 1]] = Ke_serialized[band_index][dir_index][3 * i + 2];
                 }
                 std::vector<double> sol = _solve_matrix(Ke, Re);
+#endif
                 for (int cell_index = 0; cell_index < N_cell; cell_index++) {
                     ee_curr[cell_index][dir_index][band_index] = sol[cell_index];
                 }
