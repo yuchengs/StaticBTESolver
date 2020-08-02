@@ -41,8 +41,11 @@ if (USE_GPU)
     set_target_properties(StaticBTESolver
             PROPERTIES
             CUDA_SEPERATABLE_COMPILATION on)
+    set_target_properties(StaticBTESolver
+            PROPERTIES
+            COMPILE_DEFINITIONS "USE_GPU")
     target_link_libraries(StaticBTESolver PUBLIC BTEBand BTEBoundaryCondition BTEMesh BTEGeometry
-            PRIVATE MPI::MPI_CXX CUDA::cudart CUDA::cusolver CUDA::cusparse CUDA::cublas)
+            PRIVATE MPI::MPI_CXX CUDA::cudart)
 else()
     target_include_directories(StaticBTESolver PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver"
                                                PRIVATE "${PETSC_INCLUDES}")

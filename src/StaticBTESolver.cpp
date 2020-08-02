@@ -113,14 +113,12 @@ void StaticBTESolver::_get_const_coefficient() {
 
     for (int band_index = 0; band_index < N_band; band_index++) {
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-
 #ifdef USE_GPU
             std::vector<unsigned int> csrRowPtr_stl;
             csrRowPtr_stl.push_back(0);
             std::vector<unsigned int> csrColInd_stl;
             std::vector<double> csrVal_stl;
 #endif
-
             for (int cell_index = 0; cell_index < N_cell; cell_index++) {
                 std::vector<double> Ke(N_cell, 0);
                 for (int face_index = 0; face_index < N_face; face_index++) {
@@ -150,7 +148,6 @@ void StaticBTESolver::_get_const_coefficient() {
                 else {
                     Ke[cell_index] += cell_volume[cell_index];
                 }
-
 #ifdef USE_GPU
                 std::vector<int> temp_indices;
                 for (int face_index = 0; face_index < N_face; face_index++) {
@@ -182,11 +179,11 @@ void StaticBTESolver::_get_const_coefficient() {
 #endif
             }
 #ifdef USE_GPU
-            unsigned int* csrRowPtr_c = new double[csrRowPtr_stl.size()];
+            auto* csrRowPtr_c = new unsigned int[csrRowPtr_stl.size()];
             std::copy(csrRowPtr_stl.begin(), csrRowPtr_stl.end(), csrRowPtr_c);
-            unsigned int* csrColInd_c = new double[csrColInd_stl.size()];
+            auto* csrColInd_c = new unsigned int[csrColInd_stl.size()];
             std::copy(csrColInd_stl.begin(), csrColInd_stl.end(), csrColInd_c);
-            double* csrVal_c = new double[csrVal_stl.size()];
+            auto* csrVal_c = new double[csrVal_stl.size()];
             std::copy(csrVal_stl.begin(), csrVal_stl.end(), csrVal_c);
             csrRowPtr[band_index][dir_index] = csrRowPtr_c;
             csrColInd[band_index][dir_index] = csrColInd_c;
@@ -298,7 +295,7 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
     }
     return Re;
 }
-
+#ifndef USE_GPU
 std::vector<double> StaticBTESolver::_solve_matrix(vector2D<double>& Ke, std::vector<double>& Re) {
     int* nnz = new int[N_cell];
     for (int i = 0; i < N_cell; i++) {
@@ -359,6 +356,7 @@ std::vector<double> StaticBTESolver::_solve_matrix(vector2D<double>& Ke, std::ve
     KSPDestroy(&ksp);
     return x;
 }
+#endif
 
 double StaticBTESolver::_get_margin() {
     double margin = 0;
@@ -751,9 +749,12 @@ void StaticBTESolver::_iteration(int max_iter) {
             for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                 std::vector<double> Re = _get_coefficient(dir_index, band_index);
 #ifdef USE_GPU
-                int nnz = csrRowPtr[band_index][dir_index][N_cell];
-                viennacl::compressed_matrix<ScalarType> Ke(csrRowPtr[band_index][dir_index], csrColInd[band_index][dir_index], csrVal[band_index][dir_index], N_cell, N_cell, nnz);
-// TODO HERE
+                unsigned int nnz = csrRowPtr[band_index][dir_index][N_cell];
+                viennacl::compressed_matrix<double> vKe;
+                vKe.set(csrRowPtr[band_index][dir_index], csrColInd[band_index][dir_index], csrVal[band_index][dir_index], N_cell, N_cell, nnz);
+                viennacl::vector<double> vRe(Re.size());
+                viennacl::copy(Re, vRe);
+                viennacl::vector<double> sol =viennacl::linalg::solve(vKe, vRe, viennacl::linalg::bicgstab_tag());
 #else
                 // reconstruct Ke
                 vector2D<double> Ke(N_cell, std::vector<double>(N_cell, 0));
