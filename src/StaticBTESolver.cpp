@@ -4,8 +4,7 @@
 
 #include "StaticBTESolver.h"
 #ifdef USE_GPU
-#include <mpi.h>
-#include <cuda_runtime.h>
+#define VIENNACL_WITH_CUDA
 #include "scalar.hpp"
 #include "vector.hpp"
 #include "compressed_matrix.hpp"
@@ -17,6 +16,7 @@
 #else
 #include "petscksp.h"
 #endif
+
 
 StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBand* bands) {
     this->mesh = mesh;
@@ -64,9 +64,9 @@ void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double WFACTO
         N_face = 4;
     }
     N_band = bands->size();
-    cell_band_temperature = std::vector<std::vector<double>>(N_cell, std::vector<double>(N_band));
-    cell_band_density = std::vector<std::vector<double>>(N_cell, std::vector<double>(N_band));
-    ee_curr = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band)));
+    cell_band_temperature.resize(N_cell, std::vector<double>(N_band));
+    cell_band_density.resize(N_cell, std::vector<double>(N_band));
+    ee_curr.resize(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band)));
     cell_temperature.resize(N_cell);
 }
 
@@ -754,7 +754,15 @@ void StaticBTESolver::_iteration(int max_iter) {
                 vKe.set(csrRowPtr[band_index][dir_index], csrColInd[band_index][dir_index], csrVal[band_index][dir_index], N_cell, N_cell, nnz);
                 viennacl::vector<double> vRe(Re.size());
                 viennacl::copy(Re, vRe);
-                viennacl::vector<double> sol =viennacl::linalg::solve(vKe, vRe, viennacl::linalg::bicgstab_tag());
+                //viennacl::linalg::chow_patel_tag chow_patel_ilu_config;
+                //chow_patel_ilu_config.sweeps(3);       // three nonlinear sweeps
+                //chow_patel_ilu_config.jacobi_iters(2); // two Jacobi iterations per triangular 'solve' Rx=r
+                //viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
+                //viennacl::vector<double> vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::bicgstab_tag(), chow_patel_ilu);
+                viennacl::linalg::jacobi_precond<viennacl::compressed_matrix<double>> vcl_jacobi(vKe, viennacl::linalg::jacobi_tag());
+                viennacl::vector<double> vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::bicgstab_tag(), vcl_jacobi);
+                std::vector<double> sol(N_cell);
+                viennacl::copy(vsol.begin(), vsol.end(), sol.begin());
 #else
                 // reconstruct Ke
                 vector2D<double> Ke(N_cell, std::vector<double>(N_cell, 0));
@@ -795,6 +803,13 @@ void StaticBTESolver::_postprocess() {
         outFile << cell_temperature[i] << std::endl;
     }
     outFile.close();
+/*    for (int i = 0; i < N_band; i++) {
+        for (int j = 0; j < N_dir; j++) {
+            delete [] csrRowPtr[i][j];
+            delete [] csrColInd[i][j];
+            delete [] csrVal[i][j];
+        }
+    } */
 }
 
 void StaticBTESolver::solve(int max_iter) {
@@ -802,3 +817,4 @@ void StaticBTESolver::solve(int max_iter) {
     _iteration(max_iter);
     _postprocess();
 }
+

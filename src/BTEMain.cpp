@@ -134,6 +134,7 @@ int main (int argc, char **argv) {
         } else if (ext == "mphtxt") {
             ifstream geofile(geofileName);
             mesh = new BTEMesh(geofile, L_x, L_y, L_z);
+            geofile.close();
         }
         else {
             cout << "file format not supported" << endl;
@@ -143,11 +144,12 @@ int main (int argc, char **argv) {
 
     ifstream bandFile(bandfileName);
     auto bands = new BTEBand(bandFile);
-
+    bandFile.close();
     BTEBoundaryCondition* bcs;
     if (bPresent) {
         ifstream bcFile(bfileName);
         bcs = new BTEBoundaryCondition(bcFile);
+        bcFile.close();
     }
     else {
         if (p == string::npos || ext != "geo") {
@@ -173,4 +175,8 @@ int main (int argc, char **argv) {
     StaticBTESolver solver(mesh, bcs, bands);
     solver.setParam(DM, ntheta, nphi, WFACTOR, T_ref);
     solver.solve(maxIter);
+
+    delete mesh;
+    delete bcs;
+    delete bands;
 }
