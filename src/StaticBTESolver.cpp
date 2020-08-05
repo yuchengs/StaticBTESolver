@@ -4,14 +4,14 @@
 
 #include "StaticBTESolver.h"
 #ifdef USE_GPU
-#define VIENNACL_WITH_CUDA
+#define VIENNACL_WITH_CUDA 1
 #include "scalar.hpp"
 #include "vector.hpp"
 #include "compressed_matrix.hpp"
 #include "linalg/prod.hpp"
 #include "linalg/jacobi_precond.hpp"
-#include "linalg/cg.hpp"
 #include "linalg/bicgstab.hpp"
+#include "linalg/cg.hpp"
 #include "linalg/gmres.hpp"
 #else
 #include "petscksp.h"
@@ -104,9 +104,9 @@ void StaticBTESolver::_get_const_coefficient() {
     a_f_total.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
 
 #ifdef USE_GPU
-    csrRowPtr.resize(N_band, std::vector<unsigned int*>(N_dir));
-    csrColInd.resize(N_band, std::vector<unsigned int*>(N_dir));
-    csrVal.resize(N_band, std::vector<double*>(N_dir));
+    csrRowPtr.resize(N_band, std::vector<unsigned int*>(N_dir, nullptr));
+    csrColInd.resize(N_band, std::vector<unsigned int*>(N_dir, nullptr));
+    csrVal.resize(N_band, std::vector<double*>(N_dir, nullptr));
 #else
     Ke_serialized.resize(N_band, vector2D<double>(N_dir, std::vector<double>()));
 #endif
@@ -754,13 +754,18 @@ void StaticBTESolver::_iteration(int max_iter) {
                 vKe.set(csrRowPtr[band_index][dir_index], csrColInd[band_index][dir_index], csrVal[band_index][dir_index], N_cell, N_cell, nnz);
                 viennacl::vector<double> vRe(Re.size());
                 viennacl::copy(Re, vRe);
-                //viennacl::linalg::chow_patel_tag chow_patel_ilu_config;
-                //chow_patel_ilu_config.sweeps(3);       // three nonlinear sweeps
-                //chow_patel_ilu_config.jacobi_iters(2); // two Jacobi iterations per triangular 'solve' Rx=r
-                //viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
-                //viennacl::vector<double> vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::bicgstab_tag(), chow_patel_ilu);
-                viennacl::linalg::jacobi_precond<viennacl::compressed_matrix<double>> vcl_jacobi(vKe, viennacl::linalg::jacobi_tag());
-                viennacl::vector<double> vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::bicgstab_tag(), vcl_jacobi);
+  //              viennacl::linalg::chow_patel_tag chow_patel_ilu_config;
+ //               chow_patel_ilu_config.sweeps(3);       // three nonlinear sweeps
+ //               chow_patel_ilu_config.jacobi_iters(3); // two Jacobi iterations per triangular 'solve' Rx=r
+ //               viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
+  //              viennacl::vector<double> vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::bicgstab_tag(), chow_patel_ilu);
+
+                //viennacl::linalg::jacobi_precond<viennacl::compressed_matrix<double>> vcl_jacobi(vKe, viennacl::linalg::jacobi_tag());
+                //viennacl::vector<double> vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::bicgstab_tag(), vcl_jacobi);
+
+                viennacl::linalg::gmres_tag my_gmres_tag(1e-7, 100, 20); // up to 100 iterations, restart after 20 iterations
+                viennacl::vector<double> vsol = viennacl::linalg::solve(vKe, vRe, my_gmres_tag);
+
                 std::vector<double> sol(N_cell);
                 viennacl::copy(vsol.begin(), vsol.end(), sol.begin());
 #else
