@@ -4,10 +4,12 @@
 
 #include <iostream>
 #include <string>
-#include <sstream>
 #include <getopt.h>
 #include "StaticBTESolver/BTEGeometry.h"
 #include "StaticBTESolver/StaticBTESolver.h"
+#ifdef USE_GPU
+#include <mpi.h>
+#endif
 
 using namespace std;
 
@@ -21,6 +23,7 @@ using namespace std;
  */
 
 int main (int argc, char **argv) {
+    MPI_Init(nullptr, nullptr);
     opterr = true;
     static struct option longopts[] = {
             { "geometry", required_argument, nullptr, 'g' },
@@ -179,4 +182,5 @@ int main (int argc, char **argv) {
     delete mesh;
     delete bcs;
     delete bands;
+    MPI::Finalize();
 }

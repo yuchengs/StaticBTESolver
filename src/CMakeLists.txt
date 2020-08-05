@@ -46,7 +46,6 @@ if (USE_GPU)
     set_target_properties(StaticBTESolver
             PROPERTIES
             COMPILE_DEFINITIONS "USE_GPU")
-    target_compile_options(StaticBTESolver PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-x cu>)
     target_link_libraries(StaticBTESolver PUBLIC BTEBand BTEBoundaryCondition BTEMesh BTEGeometry
             PRIVATE MPI::MPI_CXX CUDA::cudart)
 else()
@@ -58,5 +57,10 @@ endif()
 
 add_executable(BTEcmd
         BTEMain.cpp)
-target_link_libraries(BTEcmd PUBLIC StaticBTESolver)
+if (USE_GPU)
+    target_link_libraries(BTEcmd PUBLIC StaticBTESolver MPI::MPI_CXX)
+    set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_GPU")
+else()
+    target_link_libraries(BTEcmd PUBLIC StaticBTESolver)
+endif()
 
