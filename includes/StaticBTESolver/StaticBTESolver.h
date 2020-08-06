@@ -15,6 +15,10 @@
 
 
 class StaticBTESolver {
+    int num_proc;
+    int world_rank;
+    int device_count;
+    int device_id;
     // cache
     BTEMesh* mesh;
     BTEBoundaryCondition* bcs;
@@ -53,7 +57,7 @@ class StaticBTESolver {
 #else
     vector3D<double> Ke_serialized;
 #endif
-    vector3D<double> ee_curr, ee_prev;
+    std::vector<ContinuousArray> ee_curr, ee_prev;
     vector2D<double> bc_band_heat_flux;
     std::vector<double> bc_heat_flux;
 
@@ -62,7 +66,9 @@ class StaticBTESolver {
     void _recover_temperature();
     void _get_const_coefficient();
     std::vector<double> _get_coefficient(int dir_index, int band_index);
+#ifndef USE_GPU
     std::vector<double> _solve_matrix(vector2D<double>& Ke, std::vector<double>& Re);
+#endif
     double _get_margin();
     void _get_heat_flux();
 

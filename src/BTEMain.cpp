@@ -23,7 +23,9 @@ using namespace std;
  */
 
 int main (int argc, char **argv) {
+#ifdef USE_GPU
     MPI_Init(nullptr, nullptr);
+#endif
     opterr = true;
     static struct option longopts[] = {
             { "geometry", required_argument, nullptr, 'g' },
@@ -182,5 +184,7 @@ int main (int argc, char **argv) {
     delete mesh;
     delete bcs;
     delete bands;
+#ifdef USE_GPU
     MPI::Finalize();
+#endif
 }

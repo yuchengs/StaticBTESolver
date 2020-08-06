@@ -12,6 +12,7 @@
 #include <memory>
 #include <iomanip>
 #include <algorithm>
+#include <iostream>
 
 #define PI M_PI
 #define eps pow(2,-52)
@@ -21,6 +22,7 @@ struct Point {
     explicit Point(double xx = 0, double yy = 0, double zz = 0) : x {xx}, y {yy}, z {zz} {}
     Point(const Point& pt) = default;
     Point& operator=(const Point& rhs) = default;
+
     Point operator+(const Point& rhs) const {
         return Point(x + rhs.x, y + rhs.y, z + rhs.z);
     }
@@ -131,4 +133,58 @@ struct Band {
 
 std::vector<double> GaussIntegrationPoints(double a, double b, int N);
 
+class ContinuousArray {
+public:
+    double *data{};
+    int dim1{};
+    int dim2{};
+    ContinuousArray() = default;
+    ContinuousArray(int dim1, int dim2) {
+        init(dim1, dim2);
+    }
+    ContinuousArray(const ContinuousArray& rhs) {
+        this->dim1 = rhs.dim1;
+        this->dim2 = rhs.dim2;
+        data = new double[this->dim1 * this->dim2];
+        std::copy(rhs.data, rhs.data + rhs.dim1 * rhs.dim2, data);
+    }
+    ContinuousArray operator=(const ContinuousArray& rhs) {
+        if (this->data) delete [] this->data;
+        this->dim1 = rhs.dim1;
+        this->dim2 = rhs.dim2;
+        data = new double[this->dim1 * this->dim2];
+        std::copy(rhs.data, rhs.data + rhs.dim1 * rhs.dim2, data);
+        return *this;
+    }
+    void init(int d1, int d2) {
+        if (!this->dim1 || !this->dim2) {
+            delete [] data;
+        }
+        data = new double[d1 * d2]();
+        this->dim1 = d1;
+        this->dim2 = d2;
+    }
+    double* get_ptr(int i, int j) const {
+        return data + (i * this->dim2 + j);
+    }
+    double get(int i, int j) const {
+        return *get_ptr(i, j);
+    }
+    void clear() const {
+        std::fill_n(this->data, this->dim1 * this->dim2, 0.0);
+    }
+
+    void print() const {
+        for (int i = 0; i < dim1; i++) {
+            for (int j = 0; j < dim2; j++) {
+                std::cout << data[i * dim2 + j] << "  ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    ~ContinuousArray() {
+        if (data && this->dim1 > 0) delete [] data;
+    }
+};
 #endif //BTESOLVER_UTILITY_H
