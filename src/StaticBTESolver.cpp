@@ -4,24 +4,46 @@
 
 #include "StaticBTESolver.h"
 #ifdef USE_GPU
+#define VIENNACL_WITH_CUDA 1
 #include <mpi.h>
-#include <cuda_runtime.h>
 #include "scalar.hpp"
 #include "vector.hpp"
 #include "compressed_matrix.hpp"
 #include "linalg/prod.hpp"
 #include "linalg/jacobi_precond.hpp"
-#include "linalg/cg.hpp"
 #include "linalg/bicgstab.hpp"
+#include "linalg/cg.hpp"
 #include "linalg/gmres.hpp"
 #else
 #include "petscksp.h"
 #endif
 
+
 StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBand* bands) {
     this->mesh = mesh;
     this->bcs = bcs;
     this->bands = bands;
+
+
+#ifdef USE_GPU
+    MPI_Comm_size(MPI_COMM_WORLD, &this->num_proc);
+    MPI_Comm_rank(MPI_COMM_WORLD, &this->world_rank);
+    if (mesh->dim == 1) {
+        if (this->world_rank == 0) {
+            std::cout << "GPU version does not support 1D geometry." << std::endl;
+        }
+        exit(0);
+    }
+
+    cudaGetDeviceCount(&this->device_count);
+    this->device_id = this->world_rank % this->device_count;
+    cudaSetDevice(this->device_id);
+    if (this->world_rank == 0) {
+        std::cout << this->num_proc << " process(es),   " << this->device_count << " device(s)"<< std::endl;
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    std::cout << "Bind solver rank " << this->world_rank << " to device " << this->device_id << "." << std::endl;
+#endif
 }
 
 void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double WFACTOR, double T_ref) {
@@ -64,9 +86,8 @@ void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double WFACTO
         N_face = 4;
     }
     N_band = bands->size();
-    cell_band_temperature = std::vector<std::vector<double>>(N_cell, std::vector<double>(N_band));
-    cell_band_density = std::vector<std::vector<double>>(N_cell, std::vector<double>(N_band));
-    ee_curr = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band)));
+    cell_band_temperature.resize(N_cell, std::vector<double>(N_band));
+    cell_band_density.resize(N_cell, std::vector<double>(N_band));
     cell_temperature.resize(N_cell);
 }
 
@@ -74,7 +95,7 @@ void StaticBTESolver::_get_cell_temperature(int band_index) {
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
         double e0 = 0;
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-            e0 += ee_curr[cell_index][dir_index][band_index] * control_angles[dir_index];
+            e0 += ee_curr[band_index].get(dir_index, cell_index) * control_angles[dir_index];
         }
         cell_band_temperature[cell_index][band_index] = e0 / (*bands)[band_index].Ctot + T_ref;
     }
@@ -102,10 +123,25 @@ void StaticBTESolver::_get_const_coefficient() {
         S_dot_normal_cache.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
     }
     a_f_total.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
+
+#ifdef USE_GPU
+    csrRowPtr.resize(N_band, std::vector<unsigned int*>(N_dir, nullptr));
+    csrColInd.resize(N_band, std::vector<unsigned int*>(N_dir, nullptr));
+    csrVal.resize(N_band, std::vector<double*>(N_dir, nullptr));
+#else
+    Ke_serialized.resize(N_band, vector2D<double>(N_dir, std::vector<double>()));
+#endif
+
     for (int band_index = 0; band_index < N_band; band_index++) {
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-            vector2D<double> Ke(N_cell, std::vector<double>(N_cell, 0));
+#ifdef USE_GPU
+            std::vector<unsigned int> csrRowPtr_stl;
+            csrRowPtr_stl.push_back(0);
+            std::vector<unsigned int> csrColInd_stl;
+            std::vector<double> csrVal_stl;
+#endif
             for (int cell_index = 0; cell_index < N_cell; cell_index++) {
+                std::vector<double> Ke(N_cell, 0);
                 for (int face_index = 0; face_index < N_face; face_index++) {
                     double area = cell_face_area[cell_index][face_index];
                     dv_dot_normal_cache[band_index][dir_index][cell_index].push_back(
@@ -121,30 +157,59 @@ void StaticBTESolver::_get_const_coefficient() {
                         temp *= dv_dot_normal_cache[band_index][dir_index][cell_index][face_index];
                     }
                     if (dv_dot_normal_cache[band_index][dir_index][cell_index][face_index] >= 0) {
-                        Ke[cell_index][cell_index] += temp;
+                        Ke[cell_index] += temp;
                     } else if (cell_neighbor_indices[cell_index][face_index] >= 0) {
-                        Ke[cell_index][cell_neighbor_indices[cell_index][face_index]] += temp;
+                        Ke[cell_neighbor_indices[cell_index][face_index]] += temp;
                     }
                     a_f_total[band_index][dir_index][cell_index].push_back(temp);
                 }
                 if (mesh->dim > 1) {
-                    Ke[cell_index][cell_index] += cell_volume[cell_index] * control_angles[dir_index];
+                    Ke[cell_index] += cell_volume[cell_index] * control_angles[dir_index];
                 }
                 else {
-                    Ke[cell_index][cell_index] += cell_volume[cell_index];
+                    Ke[cell_index] += cell_volume[cell_index];
                 }
-            }
-            for (int i = 0; i < N_cell; i++) {
-                for (int j = 0; j < N_cell; j++) {
-                    if (Ke[i][j] != 0) {
-                        Ke_serialized.push_back(band_index);
-                        Ke_serialized.push_back(dir_index);
-                        Ke_serialized.push_back(i);
-                        Ke_serialized.push_back(j);
-                        Ke_serialized.push_back(Ke[i][j]);
+#ifdef USE_GPU
+                std::vector<int> temp_indices;
+                for (int face_index = 0; face_index < N_face; face_index++) {
+                    if (cell_neighbor_indices[cell_index][face_index] >= 0 && Ke[cell_neighbor_indices[cell_index][face_index]] != 0) {
+                        temp_indices.push_back(cell_neighbor_indices[cell_index][face_index]);
                     }
                 }
+                if (Ke[cell_index] != 0) temp_indices.push_back(cell_index);
+                std::sort(temp_indices.begin(), temp_indices.end());
+
+                for (int index : temp_indices) {
+                    csrColInd_stl.push_back(index);
+                    csrVal_stl.push_back(Ke[index]);
+                }
+                csrRowPtr_stl.push_back(csrRowPtr_stl.back() + temp_indices.size());
+#else
+                if (Ke[cell_index] != 0) {
+                    Ke_serialized[band_index][dir_index].push_back(cell_index);
+                    Ke_serialized[band_index][dir_index].push_back(cell_index);
+                    Ke_serialized[band_index][dir_index].push_back(Ke[cell_index]);
+                }
+                for (int face_index = 0; face_index < N_face; face_index++) {
+                    if (cell_neighbor_indices[cell_index][face_index] >= 0) {
+                        Ke_serialized[band_index][dir_index].push_back(cell_index);
+                        Ke_serialized[band_index][dir_index].push_back(cell_neighbor_indices[cell_index][face_index]);
+                        Ke_serialized[band_index][dir_index].push_back(Ke[cell_neighbor_indices[cell_index][face_index]]);
+                    }
+                }
+#endif
             }
+#ifdef USE_GPU
+            auto* csrRowPtr_c = new unsigned int[csrRowPtr_stl.size()];
+            std::copy(csrRowPtr_stl.begin(), csrRowPtr_stl.end(), csrRowPtr_c);
+            auto* csrColInd_c = new unsigned int[csrColInd_stl.size()];
+            std::copy(csrColInd_stl.begin(), csrColInd_stl.end(), csrColInd_c);
+            auto* csrVal_c = new double[csrVal_stl.size()];
+            std::copy(csrVal_stl.begin(), csrVal_stl.end(), csrVal_c);
+            csrRowPtr[band_index][dir_index] = csrRowPtr_c;
+            csrColInd[band_index][dir_index] = csrColInd_c;
+            csrVal[band_index][dir_index] = csrVal_c;
+#endif
         }
     }
 }
@@ -167,16 +232,16 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                         for (int dir_index_inner = 0; dir_index_inner < N_dir; dir_index_inner++) {
                             if (dv_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index] > 0) {
                                 if (mesh->dim == 3) {
-                                    einsum += ee_prev[cell_index][dir_index_inner][band_index]
+                                    einsum += ee_prev[band_index].get(dir_index, cell_index)
                                               * S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
                                               * control_angles[dir_index_inner];
                                     temp += S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
                                             * control_angles[dir_index_inner];
                                 } else if (mesh->dim == 2) {
-                                    einsum += ee_prev[cell_index][dir_index_inner][band_index]
+                                    einsum += ee_prev[band_index].get(dir_index, cell_index)
                                               * S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index];
                                 } else {
-                                    einsum += ee_prev[cell_index][dir_index_inner][band_index]
+                                    einsum += ee_prev[band_index].get(dir_index, cell_index)
                                               * dv_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
                                               * control_angles[dir_index_inner];
                                 }
@@ -201,21 +266,21 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                             std::cout << "Boundary type 31 not supported for DG 1" << std::endl;
                             exit(1);
                         }
-                        Re[cell_index] -= ee_prev[cell_index][itheta * 4 * num_phi + iphi][band_index]
+                        Re[cell_index] -= ee_prev[band_index].get(itheta * 4 * num_phi + iphi, cell_index)
                                           * a_f_total[band_index][dir_index][cell_index][face_index];
                     } else if (bc.type == 32) {
                         int itheta = dir_index / (4 * num_phi);
                         int iphi = dir_index % (4 * num_phi);
                         if (mesh->dim == 2) {
                             iphi = 4 * num_phi - iphi - 1;
-                            Re[cell_index] -= ee_prev[cell_index][itheta * 4 * num_phi + iphi][band_index]
+                            Re[cell_index] -= ee_prev[band_index].get(itheta * 4 * num_phi + iphi, cell_index)
                                               * a_f_total[band_index][dir_index][cell_index][face_index];
                         } else if (mesh->dim == 3) {
                             int ix = iphi / (2 * num_phi);
                             int isx = iphi % (2 * num_phi);
                             isx = 2 * num_phi - isx - 1;
                             Re[cell_index] -=
-                                    ee_prev[cell_index][itheta * 4 * num_phi + isx + ix * 2 * num_phi][band_index]
+                                    ee_prev[band_index].get(itheta * 4 * num_phi + isx + ix * 2 * num_phi, cell_index)
                                     * a_f_total[band_index][dir_index][cell_index][face_index];
                         }
                         else {
@@ -231,7 +296,7 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                         int iz = dir_index / (4 * num_phi);
                         int isz = dir_index % (4 * num_phi);
                         iz = 2 * num_phi - iz - 1;
-                        Re[cell_index] -= ee_prev[cell_index][isz + iz * 4 * num_phi][band_index]
+                        Re[cell_index] -= ee_prev[band_index].get(isz + iz * 4 * num_phi, cell_index)
                                           * a_f_total[band_index][dir_index][cell_index][face_index];
                     } else {
                         std::cout << "Boundary Condition Type " << bc.type << " not supported. Abort." << std::endl;
@@ -251,7 +316,7 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
     }
     return Re;
 }
-
+#ifndef USE_GPU
 std::vector<double> StaticBTESolver::_solve_matrix(vector2D<double>& Ke, std::vector<double>& Re) {
     int* nnz = new int[N_cell];
     for (int i = 0; i < N_cell; i++) {
@@ -312,15 +377,14 @@ std::vector<double> StaticBTESolver::_solve_matrix(vector2D<double>& Ke, std::ve
     KSPDestroy(&ksp);
     return x;
 }
+#endif
 
 double StaticBTESolver::_get_margin() {
     double margin = 0;
     for (int band_index = 0; band_index < N_band; band_index++) {
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-
             for (int cell_index = 0; cell_index < N_cell; cell_index++) {
-                margin += pow((ee_curr[cell_index][dir_index][band_index] - ee_prev[cell_index][dir_index][band_index]),
-                              2);
+                margin += std::pow(ee_curr[band_index].get(dir_index, cell_index) - ee_prev[band_index].get(dir_index, cell_index), 2);
             }
         }
     }
@@ -341,18 +405,18 @@ void StaticBTESolver::_get_heat_flux() {
                         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                             // TODO: check if control angle is needed
                             if (DM == 3 && mesh->dim == 3) {
-                                heat += ee_curr[cell_index][dir_index][band_index]
+                                heat += ee_curr[band_index].get(dir_index, cell_index)
                                         * dv_dot_normal_cache[band_index][dir_index][cell_index][face_index]
                                         * cell_face_area[cell_index][face_index]
                                         * control_angles[dir_index];
                             }
                             else if (mesh->dim == 1) {
-                                heat += ee_curr[cell_index][dir_index][band_index]
+                                heat += ee_curr[band_index].get(dir_index, cell_index)
                                         * dv_dot_normal_cache[band_index][dir_index][cell_index][face_index]
                                         * control_angles[dir_index];
                             }
                             else {
-                                heat += ee_curr[cell_index][dir_index][band_index]
+                                heat += ee_curr[band_index].get(dir_index, cell_index)
                                         * S_dot_normal_cache[band_index][dir_index][cell_index][face_index]
                                         * cell_face_area[cell_index][face_index];
                             }
@@ -369,7 +433,14 @@ void StaticBTESolver::_get_heat_flux() {
             }
             bc_heat_flux[bc_index] += bc_band_heat_flux[bc_index][band_index];
         }
-        std::cout << "heat flux of Boundary Condition #" << -1 - bcs->boundaryConditions[bc_index].index << ": " << bc_heat_flux[bc_index] << std::endl;
+#ifdef USE_GPU
+        if (this->world_rank == 0) {
+#endif
+            std::cout << "heat flux of Boundary Condition #" << -1 - bcs->boundaryConditions[bc_index].index << ": "
+                      << bc_heat_flux[bc_index] << std::endl;
+#ifdef USE_GPU
+        }
+#endif
     }
 }
 
@@ -407,7 +478,7 @@ void StaticBTESolver::_preprocess() {
             for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                 cost.push_back(cos(gauss[2 * dir_index]));
                 W.push_back(gauss[2 * dir_index + 1]);
-                sint.push_back(pow(1 - cost[dir_index] * cost[dir_index], 0.5));
+                sint.push_back(std::pow(1 - cost[dir_index] * cost[dir_index], 0.5));
             }
             for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                 control_angles[dir_index] = W[dir_index] * 2;
@@ -474,12 +545,12 @@ void StaticBTESolver::_preprocess() {
             for (int i = 0; i < num_theta; i++) {
                 cost.push_back(gauss[2 * i]);
                 W.push_back(gauss[2 * i + 1]);
-                sint.push_back(pow(1 - cost[i] * cost[i], 0.5));
+                sint.push_back(std::pow(1 - cost[i] * cost[i], 0.5));
             }
             for (int i = 0; i < num_phi; i++) {
                 cosp.push_back(gaussp[2 * i] / PI);
                 Wphi.push_back(gaussp[2 * i + 1]);
-                sinp.push_back(pow(1 - cosp[i] * cosp[i], 0.5));
+                sinp.push_back(std::pow(1 - cosp[i] * cosp[i], 0.5));
             }
             for (int i = 0; i< num_theta; i++) {
                 for (int j = 0; j < num_phi; j++) {
@@ -530,7 +601,8 @@ void StaticBTESolver::_preprocess() {
             cell_centers.push_back(std::move(ptr));
             // FIXME: can be optimized to avoid creating temp object
             // possible fix: implement getVolume for shared pointer
-            cell_volume.push_back(getVolume(*p1, *p2, *p3, *p4));
+            double temp = getVolume(*p1, *p2, *p3, *p4);
+            cell_volume.push_back(temp);
         }
     }
     else {
@@ -688,42 +760,95 @@ void StaticBTESolver::_preprocess() {
 }
 
 void StaticBTESolver::_iteration(int max_iter) {
-    std::cout << "N_cell: " << N_cell << std::endl
-              << "N_dir: " << N_dir << std::endl
-              << "N_band: " << N_band << std::endl
-              << "num_theta: " << num_theta << std::endl
-              << "num_phi: " << num_phi << std::endl << std::endl;
+#ifdef USE_GPU
+    if (this->world_rank == 0) {
+#endif
+        std::cout << "N_cell: " << N_cell << std::endl
+                  << "N_dir: " << N_dir << std::endl
+                  << "N_band: " << N_band << std::endl
+                  << "num_theta: " << num_theta << std::endl
+                  << "num_phi: " << num_phi << std::endl << std::endl;
+#ifdef USE_GPU
+    }
 
-    // load inputee or set 0 to start over
-    ee_curr = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band, 0)));
+
+    viennacl::linalg::chow_patel_tag chow_patel_ilu_config;
+    chow_patel_ilu_config.sweeps(3);       // three nonlinear sweeps
+    chow_patel_ilu_config.jacobi_iters(2); // two Jacobi iterations per triangular 'solve' Rx=r
+#endif
+
+    ee_curr.resize(N_band, ContinuousArray(N_dir, N_band));
     for (int iter_index = 0; iter_index < max_iter; iter_index++) {
         ee_prev = ee_curr;
-        ee_curr = vector3D<double>(N_cell, vector2D<double>(N_dir, std::vector<double>(N_band, 0)));
         for (int band_index = 0; band_index < N_band; band_index++) {
+            ee_curr[band_index].init(N_dir, N_cell);
+        }
+        for (int band_index = 0; band_index < N_band; band_index++) {
+#ifdef USE_GPU
+            for (int dir_index = this->world_rank; dir_index < N_dir; dir_index += this->num_proc) {
+#else
             for (int dir_index = 0; dir_index < N_dir; dir_index++) {
+#endif
+                std::vector<double> Re = _get_coefficient(dir_index, band_index);
+#ifdef USE_GPU
+                unsigned int nnz = csrRowPtr[band_index][dir_index][N_cell];
+                viennacl::compressed_matrix<double> vKe;
+                vKe.set(csrRowPtr[band_index][dir_index], csrColInd[band_index][dir_index], csrVal[band_index][dir_index], N_cell, N_cell, nnz);
+                viennacl::vector<double> vRe(Re.size());
+                viennacl::copy(Re, vRe);
+
+                viennacl::vector<double> vsol;
+
+                viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
+                vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-8, 800,200), chow_patel_ilu);
+
+                auto* sol = new double[N_cell];
+                viennacl::copy(vsol.begin(), vsol.end(), sol);
+                MPI_Barrier(MPI_COMM_WORLD);
+                MPI_Allgather(sol,
+                              N_cell,
+                              MPI_DOUBLE,
+                              (ee_curr[band_index].data + N_cell * (dir_index - this->world_rank)),
+                              N_cell,
+                              MPI_DOUBLE,
+                              MPI_COMM_WORLD
+                              );
+                //ee_curr[band_index].print();
+                delete [] sol;
+#else
                 // reconstruct Ke
                 vector2D<double> Ke(N_cell, std::vector<double>(N_cell, 0));
-                std::vector<double> Re = _get_coefficient(dir_index, band_index);
                 // TODO #1 (possible optimization) Ke_serialized
-                for (int i = 0; i < Ke_serialized.size() / 5; i++) {
-                    if (Ke_serialized[5 * i] == band_index && Ke_serialized[5 * i + 1] == dir_index) {
-                        Ke[Ke_serialized[5 * i + 2]][Ke_serialized[5 * i + 3]] = Ke_serialized[5 * i + 4];
-                    }
+                for (int i = 0; i < Ke_serialized[band_index][dir_index].size() / 3; i++) {
+                    Ke[Ke_serialized[band_index][dir_index][3 * i]][Ke_serialized[band_index][dir_index][3 * i + 1]] = Ke_serialized[band_index][dir_index][3 * i + 2];
                 }
                 std::vector<double> sol = _solve_matrix(Ke, Re);
+
                 for (int cell_index = 0; cell_index < N_cell; cell_index++) {
-                    ee_curr[cell_index][dir_index][band_index] = sol[cell_index];
+                    *ee_curr[band_index].get_ptr(dir_index, cell_index) = sol[cell_index];
                 }
+#endif
             }
             _get_cell_temperature(band_index);
         }
         _recover_temperature();
 
         double margin = _get_margin();
-        std::cout << "Iteration #" << iter_index << "\t Margin per band per cell: " << margin << std::endl;
-
+#ifdef USE_GPU
+        if (this->world_rank == 0) {
+#endif
+            std::cout << "Iteration #" << iter_index << "\t Margin per band per cell: " << margin << std::endl;
+#ifdef USE_GPU
+        }
+#endif
         if (margin <= 0.0001) {
+#ifdef USE_GPU
+            if (this->world_rank == 0) {
+#endif
             std::cout << std::endl;
+#ifdef USE_GPU
+            }
+#endif
             break;
         }
     }
@@ -731,17 +856,30 @@ void StaticBTESolver::_iteration(int max_iter) {
 
 void StaticBTESolver::_postprocess() {
     _get_heat_flux();
-    std::ofstream outFile;
-    outFile.open("Tempcell.dat");
-    for (int i = 0; i < N_cell; i++) {
-        outFile << (cell_centers[i]->x) / mesh->L_x << " "
-                << (cell_centers[i]->y) / mesh->L_y << " ";
-        if (mesh->dim == 3) {
-            outFile << (cell_centers[i]->z) / mesh->L_z << " ";
+#ifdef USE_GPU
+    if (this->world_rank == 0) {
+#endif
+        std::ofstream outFile;
+        outFile.open("Tempcell.dat");
+        for (int i = 0; i < N_cell; i++) {
+            outFile << (cell_centers[i]->x) / mesh->L_x << " "
+                    << (cell_centers[i]->y) / mesh->L_y << " ";
+            if (mesh->dim == 3) {
+                outFile << (cell_centers[i]->z) / mesh->L_z << " ";
+            }
+            outFile << cell_temperature[i] << std::endl;
         }
-        outFile << cell_temperature[i] << std::endl;
+        outFile.close();
+#ifdef USE_GPU
     }
-    outFile.close();
+#endif
+/*    for (int i = 0; i < N_band; i++) {
+        for (int j = 0; j < N_dir; j++) {
+            delete [] csrRowPtr[i][j];
+            delete [] csrColInd[i][j];
+            delete [] csrVal[i][j];
+        }
+    } */
 }
 
 void StaticBTESolver::solve(int max_iter) {
@@ -749,3 +887,4 @@ void StaticBTESolver::solve(int max_iter) {
     _iteration(max_iter);
     _postprocess();
 }
+

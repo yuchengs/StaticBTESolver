@@ -4,10 +4,12 @@
 
 #include <iostream>
 #include <string>
-#include <sstream>
 #include <getopt.h>
 #include "StaticBTESolver/BTEGeometry.h"
 #include "StaticBTESolver/StaticBTESolver.h"
+#ifdef USE_GPU
+#include <mpi.h>
+#endif
 
 using namespace std;
 
@@ -21,6 +23,9 @@ using namespace std;
  */
 
 int main (int argc, char **argv) {
+#ifdef USE_GPU
+    MPI_Init(nullptr, nullptr);
+#endif
     opterr = true;
     static struct option longopts[] = {
             { "geometry", required_argument, nullptr, 'g' },
@@ -134,6 +139,7 @@ int main (int argc, char **argv) {
         } else if (ext == "mphtxt") {
             ifstream geofile(geofileName);
             mesh = new BTEMesh(geofile, L_x, L_y, L_z);
+            geofile.close();
         }
         else {
             cout << "file format not supported" << endl;
@@ -143,11 +149,12 @@ int main (int argc, char **argv) {
 
     ifstream bandFile(bandfileName);
     auto bands = new BTEBand(bandFile);
-
+    bandFile.close();
     BTEBoundaryCondition* bcs;
     if (bPresent) {
         ifstream bcFile(bfileName);
         bcs = new BTEBoundaryCondition(bcFile);
+        bcFile.close();
     }
     else {
         if (p == string::npos || ext != "geo") {
@@ -173,4 +180,11 @@ int main (int argc, char **argv) {
     StaticBTESolver solver(mesh, bcs, bands);
     solver.setParam(DM, ntheta, nphi, WFACTOR, T_ref);
     solver.solve(maxIter);
+
+    delete mesh;
+    delete bcs;
+    delete bands;
+#ifdef USE_GPU
+    MPI::Finalize();
+#endif
 }

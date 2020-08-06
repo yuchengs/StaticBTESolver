@@ -1,8 +1,10 @@
 find_package(Gmsh REQUIRED)
 
 if (USE_GPU)
-    find_package(MPI)
-    find_package(CUDAToolkit)
+    find_package(MPI REQUIRED)
+    find_package(CUDAToolkit REQUIRED)
+    enable_language(CUDA)
+    set_source_files_properties(StaticBTESolver.cpp PROPERTIES LANGUAGE CUDA)
 else()
     find_package(PETSc REQUIRED)
 endif()
@@ -29,9 +31,9 @@ target_compile_features(BTEMesh PUBLIC cxx_std_14)
 
 add_library(BTEGeometry BTEGeometry.cpp "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver/BTEGeometry.h")
 target_include_directories(BTEGeometry PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes"
-                                   PRIVATE "${GMSH_INCLUDE_DIRS}")
+                                   PRIVATE "${Gmsh_INCLUDE_DIRS}")
 target_link_libraries(BTEGeometry PUBLIC BTEMesh
-                              PRIVATE "${GMSH_LIBRARIES}")
+                              PRIVATE "${Gmsh_LIBRARIES}")
 target_compile_features(BTEGeometry PUBLIC cxx_std_14)
 
 add_library(StaticBTESolver StaticBTESolver.cpp "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver/StaticBTESolver.h")
@@ -40,9 +42,12 @@ if (USE_GPU)
                                                PRIVATE "${StaticBTESolver_SOURCE_DIR}/includes/viennacl")
     set_target_properties(StaticBTESolver
             PROPERTIES
-            CUDA_SEPERATABLE_COMPILATION on)
+            CUDA_SEPARABLE_COMPILATION on)
+    set_target_properties(StaticBTESolver
+            PROPERTIES
+            COMPILE_DEFINITIONS "USE_GPU")
     target_link_libraries(StaticBTESolver PUBLIC BTEBand BTEBoundaryCondition BTEMesh BTEGeometry
-            PRIVATE MPI::MPI_CXX CUDA::cudart CUDA::cusolver CUDA::cusparse CUDA::cublas)
+            PRIVATE MPI::MPI_CXX CUDA::cudart)
 else()
     target_include_directories(StaticBTESolver PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver"
                                                PRIVATE "${PETSC_INCLUDES}")
@@ -52,5 +57,10 @@ endif()
 
 add_executable(BTEcmd
         BTEMain.cpp)
-target_link_libraries(BTEcmd PUBLIC StaticBTESolver)
+if (USE_GPU)
+    target_link_libraries(BTEcmd PUBLIC StaticBTESolver MPI::MPI_CXX)
+    set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_GPU")
+else()
+    target_link_libraries(BTEcmd PUBLIC StaticBTESolver)
+endif()
 
