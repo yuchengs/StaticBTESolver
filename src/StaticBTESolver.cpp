@@ -28,12 +28,13 @@ StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBa
 #ifdef USE_GPU
     MPI_Comm_size(MPI_COMM_WORLD, &this->num_proc);
     MPI_Comm_rank(MPI_COMM_WORLD, &this->world_rank);
-    if (mesh->dim == 1) {
-        if (this->world_rank == 0) {
-            std::cout << "GPU version does not support 1D geometry." << std::endl;
-        }
-        exit(0);
-    }
+
+//    if (mesh->dim == 1) {
+//        if (this->world_rank == 0) {
+//            std::cout << "GPU version does not support 1D geometry." << std::endl;
+//        }
+//        exit(0);
+//    }
 
     cudaGetDeviceCount(&this->device_count);
     this->device_id = this->world_rank % this->device_count;
@@ -209,6 +210,21 @@ void StaticBTESolver::_get_const_coefficient() {
             csrRowPtr[band_index][dir_index] = csrRowPtr_c;
             csrColInd[band_index][dir_index] = csrColInd_c;
             csrVal[band_index][dir_index] = csrVal_c;
+//            std::cout << "nnz = " << " " << csrRowPtr_c[N_cell] << std::endl;
+//            std::cout << "ColInd: " << std::endl;
+//            for (int i = 0; i < csrRowPtr_c[N_cell]; i++) {
+//                std::cout << csrColInd_c[i] <<  " ";
+//            }
+//            std::cout << std::endl << "Val:" << std::endl;
+//            for (int i = 0; i < csrRowPtr_c[N_cell]; i++) {
+//                std::cout << csrVal_c[i] <<  " ";
+//            }
+//            std::cout << std::endl << "RowPtr:" << std::endl;
+//            for (int i = 0; i < N_cell; i++) {
+//                std::cout << csrRowPtr_c[i] <<  " ";
+//            }
+//            std::cout << std::endl;
+//            exit(0);
 #endif
         }
     }
@@ -799,11 +815,20 @@ void StaticBTESolver::_iteration(int max_iter) {
 
                 viennacl::vector<double> vsol;
 
-                viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
-                vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-8, 800,200), chow_patel_ilu);
+                if (mesh->dim == 1) {
+                    vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::gmres_tag(1e-25, 10000, 30));
+                }
+                else {
+                    viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
+                    vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-8, 800,200), chow_patel_ilu);
+                }
 
                 auto* sol = new double[N_cell];
                 viennacl::copy(vsol.begin(), vsol.end(), sol);
+//                for (int i = 0; i < N_cell; i++){
+//                    std::cout << sol[i] << " ";
+//                }
+//                exit(0);
                 MPI_Barrier(MPI_COMM_WORLD);
                 MPI_Allgather(sol,
                               N_cell,
@@ -822,8 +847,18 @@ void StaticBTESolver::_iteration(int max_iter) {
                 for (int i = 0; i < Ke_serialized[band_index][dir_index].size() / 3; i++) {
                     Ke[Ke_serialized[band_index][dir_index][3 * i]][Ke_serialized[band_index][dir_index][3 * i + 1]] = Ke_serialized[band_index][dir_index][3 * i + 2];
                 }
-                std::vector<double> sol = _solve_matrix(Ke, Re);
-
+//                for (int i = 0; i < N_cell; i++) {
+//                    for (int j = 0; j < N_cell; j++) {
+//                        std::cout << Ke[i][j] << " ";
+//                    }
+//                    std::cout << std::endl;
+//                }
+//                exit(0);
+//                std::vector<double> sol = _solve_matrix(Ke, Re);
+//                for (int i = 0; i < N_cell; i++) {
+//                    std::cout << sol[i] << " ";
+//                }
+//                exit(0);
                 for (int cell_index = 0; cell_index < N_cell; cell_index++) {
                     *ee_curr[band_index].get_ptr(dir_index, cell_index) = sol[cell_index];
                 }
