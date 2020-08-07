@@ -820,7 +820,7 @@ void StaticBTESolver::_iteration(int max_iter) {
                 }
                 else {
                     viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
-                    vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-8, 800,200), chow_patel_ilu);
+                    vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-25, 3000, 200), chow_patel_ilu);
                 }
 
                 auto* sol = new double[N_cell];
