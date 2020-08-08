@@ -56,6 +56,8 @@ cd build
 make
 ```
 
+For CPU version, you can try ctest in `build`.
+
 ## Running
 After building, you can find a command line utility called `BTEcmd` under `/build/src`. This is the entry point to use
 `StaticBTESolver` without having to compile and work with APIs.
