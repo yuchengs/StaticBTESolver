@@ -5,7 +5,9 @@
 #include <iostream>
 #include <string>
 #include <getopt.h>
+#ifdef USE_GMSH
 #include "StaticBTESolver/BTEGeometry.h"
+#endif
 #include "StaticBTESolver/StaticBTESolver.h"
 #ifdef USE_GPU
 #include <mpi.h>
@@ -49,14 +51,14 @@ int main (int argc, char **argv) {
     double L_x = 0, L_y = 0, L_z = 0;
 
     int DM = 3, ntheta = 4, nphi = 4;
-    double T_ref = 300, WFACTOR = 1;
+    double T_ref = 300;
     int maxIter = 10000;
 
     int idx = 0;
     int c;
     bool bPresent = false;
 
-    while ((c = getopt_long(argc, argv, "g:m:b:d:t:p:w:T:I:x:y:z:", longopts, &idx)) != -1) {
+    while ((c = getopt_long(argc, argv, "g:m:b:d:t:p:T:I:x:y:z:", longopts, &idx)) != -1) {
         switch (c) {
             case 'g': {
                 string str(optarg);
@@ -83,16 +85,6 @@ int main (int argc, char **argv) {
             }
             case 'p': {
                 nphi = stoi(optarg);
-                break;
-            }
-            case 'w': {
-                std::string str(optarg);
-                if (str.back() >= '0' && str.back() <= '9') {
-                    WFACTOR = stod(str);
-                }
-                else {
-                    WFACTOR = stod(str) * PI;
-                }
                 break;
             }
             case 'T': {
@@ -123,7 +115,9 @@ int main (int argc, char **argv) {
     }
 
     BTEMesh* mesh;
+#ifdef USE_GMSH
     BTEGeometry* geo;
+#endif
     string ext;
     int N_cell = 0;
     auto p = geofileName.find_last_of('.');
@@ -134,8 +128,12 @@ int main (int argc, char **argv) {
     else {
         ext = geofileName.substr(p + 1);
         if (ext == "geo") {
+#ifdef USE_GMSH
             geo = new BTEGeometry(geofileName, L_x, L_y, L_z);
             mesh = geo->export_mesh();
+#else
+            cout << "gmsh is not supported" << endl;
+#endif
         } else if (ext == "mphtxt") {
             ifstream geofile(geofileName);
             mesh = new BTEMesh(geofile, L_x, L_y, L_z);
@@ -150,13 +148,14 @@ int main (int argc, char **argv) {
     ifstream bandFile(bandfileName);
     auto bands = new BTEBand(bandFile);
     bandFile.close();
-    BTEBoundaryCondition* bcs;
+    BTEBoundaryCondition* bcs = nullptr;
     if (bPresent) {
         ifstream bcFile(bfileName);
         bcs = new BTEBoundaryCondition(bcFile);
         bcFile.close();
     }
     else {
+#ifdef USE_GMSH
         if (p == string::npos || ext != "geo") {
             cerr << "Must specify boundary conditions" << endl;
             exit(1);
@@ -175,10 +174,13 @@ int main (int argc, char **argv) {
             cout << endl;
             bcs->boundaryConditions.push_back(bc);
         }
+#else
+        cout << "gmsh is not supported";
+#endif
     }
 
     StaticBTESolver solver(mesh, bcs, bands);
-    solver.setParam(DM, ntheta, nphi, WFACTOR, T_ref);
+    solver.setParam(DM, ntheta, nphi, T_ref);
     solver.solve(maxIter);
 
     delete mesh;

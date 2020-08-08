@@ -78,7 +78,7 @@ class StaticBTESolver {
 
 public:
     StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBand* bands);
-    void setParam(int DM, int num_theta, int num_phi, double WFACTOR, double T_ref);
+    void setParam(int DM, int num_theta, int num_phi, double T_ref);
     void solve(int max_iter);
 };
 

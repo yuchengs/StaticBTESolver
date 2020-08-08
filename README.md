@@ -23,7 +23,7 @@ Instructions for your reference:
 3. `OpenCASCADE` (optional): OpenCASCADE is a free CAD kernel. If gmsh's build-in kernel is enough for you, you may skip this dependency. However,
 we may support `STEP` file format in the future, which will probably use `OpenCASCADE`.
 
-4. `gmsh`: gmsh is a free mesh generator. To install, consult gmsh documentation [here](gmsh.info). Since we use gmsh api for C++ internally, you will need to 
+4. `gmsh` (optional): gmsh is a free mesh generator. To install, consult gmsh documentation [here](gmsh.info). Since we use gmsh api for C++ internally, you will need to 
 compile gmsh as a shared library.
   ```
   git clone http://gitlab.onelab.info/gmsh/gmsh.git
@@ -76,7 +76,6 @@ Several arguments should be provided:
 - `-d [integer]` (required): provide an integer specifying DM, __not__ DG. (DG is handled automatically)  
 - `-t [integer]` (required): CADOM parameter. Number of discrete polar angle.
 - `-p [integer]` (required): CADOM parameter. Number of discrete azimuthal angle.
-- `-w [float]` (optional): Wfactor. Default at 1.
 - `-T [float]` (optional): reference temperature. Default at 300.
 - `-I [integer]` (optional): maximum number of iteration. Default at 10000.
 - `-x [float]` (optional): x-axis scale. Default at 0.
@@ -88,7 +87,7 @@ Some sample input files are in the `/tests` directory. For example, you may try
 BTEcmd -g path/to/mesh2D.mphtxt \
     -m path/to/Input-dispersion-relation-fp.dat \
     -b path/to/Inputbc2D.dat \
-    -d 2 -t 8 -p 8 -w 2 \
+    -d 2 -t 8 -p 8 \
     -x 1e-7 -y 1e-7 -z 1e-7
 ```
 If you install the GPU version, use `mpirun`:
@@ -97,7 +96,7 @@ If you install the GPU version, use `mpirun`:
 mpirun -np 2 ./BTEcmd -g path/to/mesh2D.mphtxt \
                  -m path/to/Input-dispersion-relation-fp.dat \
                  -b path/to/Inputbc2D.dat \
-                 -d 2 -t 8 -p 8 -w 2 \
+                 -d 2 -t 8 -p 8 \
                  -x 1e-7 -y 1e-7 -z 1e-7
 ```
 
@@ -121,7 +120,7 @@ mpirun -np 2 ./BTEcmd -g path/to/mesh2D.mphtxt \
     ```
 - `2DM2DG`: make sure you use files in `tests/2DM2DG`,
     ```
-    ./BTEcmd -x 1e-4 -y 1e-4 -z 0 -d 2 -w 4pi
+    ./BTEcmd -x 1e-4 -y 1e-4 -z 0 -d 2
         -t 8 -p 8 -I 1000000 
         -b path/to/tests/2DM2DG/inputbc.dat 
         -g path/to/tests/2DM2DG/mesh.mphtxt 
@@ -131,7 +130,7 @@ mpirun -np 2 ./BTEcmd -g path/to/mesh2D.mphtxt \
 - `3DM2DG`: make sure you use files in `tests/3DM2DG`,
     ```$xslt
     ./BTEcmd -x 1e-8 -y 1e-8 -z 0 -t 4 -p 4 \
-        -w 2 -d 3 -I 1000 \
+        -d 3 -I 1000 \
         -g path/to/tests/3DM2DG/mesh.mphtxt \
         -b path/to/tests/3DM2DG/inputbc.dat \
         -m path/to/tests/3DM2DG/band.dat 
@@ -139,7 +138,7 @@ mpirun -np 2 ./BTEcmd -g path/to/mesh2D.mphtxt \
 - `3DM3DG`: make sure you use files in `tests/3DM3DG`,
     ```$xslt
     ./BTEcmd -x 1e-8 -y 1e-8 -z 1e-8 -t 4 -p 4 \
-        -w 1 -d 3 -I 1000 \
+        -d 3 -I 1000 \
         -g path/to/tests/3DM3DG/mesh.mphtxt \
         -b path/to/tests/3DM3DG/inputbc.dat \
         -m path/to/tests/3DM3DG/band.dat 
@@ -149,7 +148,7 @@ mpirun -np 2 ./BTEcmd -g path/to/mesh2D.mphtxt \
 using the following for `3DM3DG`:
 ```$xslt
     ./BTEcmd -x 1e-8 -y 1e-8 -z 1e-8 -t 4 -p 4 \
-        -w 1 -d 3 -I 1000 \
+        -d 3 -I 1000 \
         -g path/to/tests/3DM3DG/mesh.mphtxt \
         -b path/to/tests/3DM3DG/inputbc.dat \
         -m path/to/tests/3DM3DG/band.dat > outfile

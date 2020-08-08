@@ -9,13 +9,14 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake-modules" "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 option(USE_GPU "compile as GPU version" off)
-option(BUILD_TESTING "build tests folder" on)
+option(USE_GMSH "use gmsh to generate mesh" off)
+option(BUILD_TESTING "build tests folder" off)
 
-IF(DEFINED CMAKE_BUILD_TYPE)
+if(DEFINED CMAKE_BUILD_TYPE)
     SET (CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}")
-ELSE()
+else()
     SET (CMAKE_BUILD_TYPE Release)
-ENDIF()
+endif()
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set(CMAKE_CXX_EXTENSIONS OFF)

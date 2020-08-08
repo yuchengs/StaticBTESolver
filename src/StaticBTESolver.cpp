@@ -24,7 +24,6 @@ StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBa
     this->bcs = bcs;
     this->bands = bands;
 
-
 #ifdef USE_GPU
     MPI_Comm_size(MPI_COMM_WORLD, &this->num_proc);
     MPI_Comm_rank(MPI_COMM_WORLD, &this->world_rank);
@@ -47,10 +46,9 @@ StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBa
 #endif
 }
 
-void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double WFACTOR, double T_ref) {
+void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double T_ref) {
     this->num_theta = num_theta;
     this->num_phi = num_phi;
-    this->WFACTOR = WFACTOR;
     this->T_ref = T_ref;
     this->DM = DM;
     this->solid_angle = 4 * PI;
@@ -69,9 +67,11 @@ void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double WFACTO
     if (mesh->dim == 2) {
         N_cell = mesh->elements2D.size();
         if (DM == 3) {
+            this->WFACTOR = 2.0;
             N_dir = 4 * num_theta * num_phi;
         }
         else if (DM == 2) {
+            this->WFACTOR = 4 * PI;
             N_dir = 4 * num_phi;
         }
         N_face = 3;
@@ -79,9 +79,11 @@ void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double WFACTO
     else if (mesh->dim == 3) {
         N_cell = mesh->elements3D.size();
         if (DM == 3) {
+            this->WFACTOR = 1.0;
             N_dir = 8 * num_theta * num_phi;
         }
         else if (DM == 2) {
+            this->WFACTOR = 2.0;
             N_dir = 4 * num_theta * num_phi;
         }
         N_face = 4;
@@ -816,11 +818,12 @@ void StaticBTESolver::_iteration(int max_iter) {
                 viennacl::vector<double> vsol;
 
                 if (mesh->dim == 1) {
-                    vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::gmres_tag(1e-25, 10000, 30));
+                    vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::gmres_tag(1e-50, 10000, 30));
                 }
                 else {
                     viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
-                    vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-8, 800,200), chow_patel_ilu);
+                    vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-50
+                                                                                           , 2000,200), chow_patel_ilu);
                 }
 
                 auto* sol = new double[N_cell];
@@ -854,11 +857,12 @@ void StaticBTESolver::_iteration(int max_iter) {
 //                    std::cout << std::endl;
 //                }
 //                exit(0);
-//                std::vector<double> sol = _solve_matrix(Ke, Re);
+//
 //                for (int i = 0; i < N_cell; i++) {
 //                    std::cout << sol[i] << " ";
 //                }
 //                exit(0);
+                std::vector<double> sol = _solve_matrix(Ke, Re);
                 for (int cell_index = 0; cell_index < N_cell; cell_index++) {
                     *ee_curr[band_index].get_ptr(dir_index, cell_index) = sol[cell_index];
                 }

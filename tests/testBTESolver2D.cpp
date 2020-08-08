@@ -46,7 +46,7 @@ int main() {
     auto mesh2D = new  BTEMesh(inFile3, L_x, L_y);
 
     StaticBTESolver solver(mesh2D, bcs, bands);
-    solver.setParam(2, ntheta, nphi, 2, Tref);
+    solver.setParam(2, ntheta, nphi, Tref);
     solver.solve(maxIter);
 
     return 0;
