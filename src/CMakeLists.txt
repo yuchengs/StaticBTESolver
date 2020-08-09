@@ -47,9 +47,15 @@ if (USE_GPU)
     set_target_properties(StaticBTESolver
             PROPERTIES
             CUDA_SEPARABLE_COMPILATION on)
-    set_target_properties(StaticBTESolver
+    if (USE_TIME)
+        set_target_properties(StaticBTESolver
             PROPERTIES
-            COMPILE_DEFINITIONS "USE_GPU")
+            COMPILE_DEFINITIONS "USE_GPU;USE_TIME")
+    else()
+        set_target_properties(StaticBTESolver
+                PROPERTIES
+                COMPILE_DEFINITIONS "USE_GPU")
+    endif()
     if (USE_GMSH)
         target_link_libraries(StaticBTESolver PUBLIC BTEBand BTEBoundaryCondition BTEMesh BTEGeometry
             PRIVATE MPI::MPI_CXX CUDA::cudart)
@@ -60,6 +66,11 @@ if (USE_GPU)
 else()
     target_include_directories(StaticBTESolver PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver"
                                                PRIVATE "${PETSC_INCLUDES}")
+    if (USE_TIME)
+        set_target_properties(StaticBTESolver
+                PROPERTIES
+                COMPILE_DEFINITIONS "USE_TIME")
+    endif()
     if (USE_GMSH)
         target_link_libraries(StaticBTESolver PUBLIC BTEBand BTEBoundaryCondition BTEMesh BTEGeometry
                                           PRIVATE "${PETSC_LIBRARIES}")
@@ -74,14 +85,30 @@ add_executable(BTEcmd
 if (USE_GPU)
     target_link_libraries(BTEcmd PUBLIC StaticBTESolver MPI::MPI_CXX)
     if (USE_GMSH)
-        set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_GPU" "USE_GMSH")
+        if (USE_TIME)
+            set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_GPU;USE_GMSH;USE_TIME")
+        else()
+            set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_GPU;USE_GMSH")
+        endif()
     else()
-        set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_GPU")
+        if (USE_TIME)
+            set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_GPU;USE_TIME")
+        else()
+            set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_GPU")
+        endif()
     endif()
 else()
     target_link_libraries(BTEcmd PUBLIC StaticBTESolver)
     if (USE_GMSH)
-        set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_GMSH")
+        if (USE_TIME)
+            set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_GMSH;USE_TIME")
+        else()
+            set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_GMSH")
+        endif()
+    else()
+        if (USE_TIME)
+            set_target_properties(BTEcmd PROPERTIES COMPILE_DEFINITIONS "USE_TIME")
+        endif()
     endif()
 endif()
 

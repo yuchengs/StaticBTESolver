@@ -1,7 +1,6 @@
 //
 // Created by Yucheng Shi on 7/13/20.
 //
-#define USE_TIME
 
 #include <iostream>
 #include <string>

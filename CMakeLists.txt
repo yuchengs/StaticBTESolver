@@ -11,6 +11,7 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake-modules" "${PROJECT_SOURCE_DI
 option(USE_GPU "compile as GPU version" off)
 option(USE_GMSH "use gmsh to generate mesh" off)
 option(BUILD_TESTING "build tests folder" off)
+option(USE_TIME "time each process" on)
 
 if(DEFINED CMAKE_BUILD_TYPE)
     SET (CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}")

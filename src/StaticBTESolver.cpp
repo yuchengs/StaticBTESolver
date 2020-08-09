@@ -1,7 +1,6 @@
 //
 // Created by Yucheng Shi on 7/8/20.
 //
-#define USE_TIME
 #include "StaticBTESolver.h"
 #ifdef USE_TIME
 #include <chrono>
