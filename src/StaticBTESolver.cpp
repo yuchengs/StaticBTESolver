@@ -1,19 +1,22 @@
 //
 // Created by Yucheng Shi on 7/8/20.
 //
-
+#define USE_TIME
 #include "StaticBTESolver.h"
+#ifdef USE_TIME
+#include <chrono>
+#endif
 #ifdef USE_GPU
 #define VIENNACL_WITH_CUDA 1
 #include <mpi.h>
-#include "scalar.hpp"
-#include "vector.hpp"
-#include "compressed_matrix.hpp"
-#include "linalg/prod.hpp"
-#include "linalg/jacobi_precond.hpp"
-#include "linalg/bicgstab.hpp"
-#include "linalg/cg.hpp"
-#include "linalg/gmres.hpp"
+#include "viennacl/scalar.hpp"
+#include "viennacl/vector.hpp"
+#include "viennacl/compressed_matrix.hpp"
+#include "viennacl/linalg/prod.hpp"
+#include "viennacl/linalg/jacobi_precond.hpp"
+#include "viennacl/linalg/bicgstab.hpp"
+#include "viennacl/linalg/cg.hpp"
+#include "viennacl/linalg/gmres.hpp"
 #else
 #include "petscksp.h"
 #endif
@@ -701,13 +704,12 @@ void StaticBTESolver::_preprocess() {
             for (int edge_index = 0; edge_index < N_face; edge_index++) {
                 int v1 = mesh->elements2D[cell_index]->index[(edge_index + 1) % N_face];
                 int v2 = mesh->elements2D[cell_index]->index[(edge_index + 2) % N_face];
-                std::unordered_set<int> temp {v1, v2};
                 for (int neighbor_index = 0; neighbor_index < N_cell; neighbor_index++) {
                     if (cell_index == neighbor_index) continue;
                     int* neighbor_ptr = mesh->elements2D[neighbor_index]->index;
                     int hit = 0;
                     for (int i = 0; i < N_face; i++) {
-                        if (temp.find(neighbor_ptr[i]) != temp.end()) {
+                        if (neighbor_ptr[i] == v1 || neighbor_ptr[i] == v2) {
                             hit++;
                         }
                     }
@@ -720,7 +722,7 @@ void StaticBTESolver::_preprocess() {
                     for (auto& seg_ptr : mesh->elements1D) {
                         int hit = 0;
                         for (int& i : seg_ptr->index) {
-                            if (temp.find(i) != temp.end()) {
+                            if (i == v1 || i == v2) {
                                 hit++;
                             }
                         }
@@ -740,13 +742,12 @@ void StaticBTESolver::_preprocess() {
                 int v1 = mesh->elements3D[cell_index]->index[(face_index + 1) % N_face];
                 int v2 = mesh->elements3D[cell_index]->index[(face_index + 2) % N_face];
                 int v3 = mesh->elements3D[cell_index]->index[(face_index + 3) % N_face];
-                std::unordered_set<int> temp {v1, v2, v3};
                 for (int neighbor_index = 0; neighbor_index < N_cell; neighbor_index++) {
                     if (cell_index == neighbor_index) continue;
                     int* neighbor_ptr = mesh->elements3D[neighbor_index]->index;
                     int hit = 0;
                     for (int i = 0; i < N_face; i++) {
-                        if (temp.find(neighbor_ptr[i]) != temp.end()) hit++;
+                        if (neighbor_ptr[i] == v1 || neighbor_ptr[i] == v2 || neighbor_ptr[i] == v3) hit++;
                     }
                     if (hit >= 3) {
                         cell_neighbor_indices[cell_index][face_index] = neighbor_index;
@@ -757,7 +758,7 @@ void StaticBTESolver::_preprocess() {
                     for (auto& tri_ptr : mesh->elements2D) {
                         int hit = 0;
                         for (int & i : tri_ptr->index) {
-                            if (temp.find(i) != temp.end()) {
+                            if (i == v1 || i == v2 || i == v3) {
                                 hit++;
                             }
                         }
@@ -797,10 +798,15 @@ void StaticBTESolver::_iteration(int max_iter) {
 
     ee_curr.resize(N_band, ContinuousArray(N_dir, N_band));
     for (int iter_index = 0; iter_index < max_iter; iter_index++) {
+#ifdef USE_TIME
+        auto time_start = std::chrono::high_resolution_clock::now();
+#endif
         ee_prev = ee_curr;
         for (int band_index = 0; band_index < N_band; band_index++) {
             ee_curr[band_index].init(N_dir, N_cell);
         }
+        // TIMEDEBUG:
+        auto start = std::chrono::high_resolution_clock::now();
         for (int band_index = 0; band_index < N_band; band_index++) {
 #ifdef USE_GPU
             for (int dir_index = this->world_rank; dir_index < N_dir; dir_index += this->num_proc) {
@@ -822,7 +828,7 @@ void StaticBTESolver::_iteration(int max_iter) {
                 }
                 else {
                     viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
-                    vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-50, 2000,200), chow_patel_ilu);
+                    vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-9, 1000,200), chow_patel_ilu);
                 }
 
                 auto* sol = new double[N_cell];
@@ -872,10 +878,17 @@ void StaticBTESolver::_iteration(int max_iter) {
         _recover_temperature();
 
         double margin = _get_margin();
+#ifdef USE_TIME
+        auto time_end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_start);
+#endif
 #ifdef USE_GPU
         if (this->world_rank == 0) {
 #endif
             std::cout << "Iteration #" << iter_index << "\t Margin per band per cell: " << margin << std::endl;
+#ifdef USE_TIME
+            std::cout << "Time taken by inner loop: " << 1.0 * duration.count() / 1000 << " milliseconds" << std::endl;
+#endif
 #ifdef USE_GPU
         }
 #endif
@@ -922,7 +935,16 @@ void StaticBTESolver::_postprocess() {
 
 void StaticBTESolver::solve(int max_iter) {
     _preprocess();
+#ifdef USE_TIME
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
     _iteration(max_iter);
+#ifdef USE_TIME
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << std::endl << "Time taken by iteration: "
+         << duration.count() * 0.001 << " milliseconds" << std::endl;
+#endif
     _postprocess();
 }
 

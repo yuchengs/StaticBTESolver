@@ -43,7 +43,7 @@ endif()
 add_library(StaticBTESolver StaticBTESolver.cpp "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver/StaticBTESolver.h")
 if (USE_GPU)
     target_include_directories(StaticBTESolver PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver"
-                                               PRIVATE "${StaticBTESolver_SOURCE_DIR}/includes/viennacl")
+                                               PRIVATE "${StaticBTESolver_SOURCE_DIR}/includes/viennacl-dev")
     set_target_properties(StaticBTESolver
             PROPERTIES
             CUDA_SEPARABLE_COMPILATION on)

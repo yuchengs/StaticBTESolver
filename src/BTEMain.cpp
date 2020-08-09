@@ -1,6 +1,7 @@
 //
 // Created by Yucheng Shi on 7/13/20.
 //
+#define USE_TIME
 
 #include <iostream>
 #include <string>
@@ -11,6 +12,10 @@
 #include "StaticBTESolver/StaticBTESolver.h"
 #ifdef USE_GPU
 #include <mpi.h>
+#endif
+#ifdef USE_TIME
+#include <chrono>
+using namespace std::chrono;
 #endif
 
 using namespace std;
@@ -178,11 +183,21 @@ int main (int argc, char **argv) {
         cout << "gmsh is not supported";
 #endif
     }
+#ifdef USE_TIME
+    auto start = high_resolution_clock::now();
+#endif
 
     StaticBTESolver solver(mesh, bcs, bands);
     solver.setParam(DM, ntheta, nphi, T_ref);
     solver.solve(maxIter);
 
+#ifdef USE_TIME
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
+
+    cout << "Time taken by solver: "
+         << duration.count() * 0.001 << " milliseconds" << endl;
+#endif
     delete mesh;
     delete bcs;
     delete bands;

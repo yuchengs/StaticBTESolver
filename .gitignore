@@ -4,3 +4,6 @@ cmake-build-debug/
 includes/viennacl/*
 *.out
 Tempcell.dat
+*.dat
+*.mphtxt
+.DS_Store

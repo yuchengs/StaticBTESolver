@@ -1,3 +1,6 @@
 [submodule "cmake-modules"]
 	path = cmake-modules
 	url = https://github.com/jedbrown/cmake-modules.git
+[submodule "includes/viennacl-dev"]
+	path = includes/viennacl-dev
+	url = git@github.com:viennacl/viennacl-dev.git
