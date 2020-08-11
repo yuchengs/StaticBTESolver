@@ -14,6 +14,7 @@
 #include "StaticBTESolver/BTEBoundaryCondition.h"
 
 
+
 class StaticBTESolver {
     int num_proc;
     int world_rank;
@@ -50,13 +51,10 @@ class StaticBTESolver {
     vector4D<double> dv_dot_normal_cache;
     vector4D<double> S_dot_normal_cache;
     vector4D<double> a_f_total;
-#ifdef USE_GPU
     vector2D<unsigned int*> csrRowPtr;
     vector2D<unsigned int*> csrColInd;
     vector2D<double*> csrVal;
-#else
-    vector3D<double> Ke_serialized;
-#endif
+
     std::vector<ContinuousArray> ee_curr, ee_prev;
     vector2D<double> bc_band_heat_flux;
     std::vector<double> bc_heat_flux;
@@ -67,7 +65,7 @@ class StaticBTESolver {
     void _get_const_coefficient();
     std::vector<double> _get_coefficient(int dir_index, int band_index);
 #ifndef USE_GPU
-    std::vector<double> _solve_matrix(vector2D<double>& Ke, std::vector<double>& Re);
+    std::vector<double> _solve_matrix(int* csrRowPtr, int* csrColInd, double* csrVal, std::vector<double>& Re);
 #endif
     double _get_margin();
     void _get_heat_flux();

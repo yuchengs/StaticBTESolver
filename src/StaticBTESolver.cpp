@@ -17,7 +17,7 @@
 #include "viennacl/linalg/cg.hpp"
 #include "viennacl/linalg/gmres.hpp"
 #else
-#include "petscksp.h"
+#include <petscksp.h>
 #endif
 
 
@@ -30,13 +30,6 @@ StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBa
     MPI_Comm_size(MPI_COMM_WORLD, &this->num_proc);
     MPI_Comm_rank(MPI_COMM_WORLD, &this->world_rank);
 
-//    if (mesh->dim == 1) {
-//        if (this->world_rank == 0) {
-//            std::cout << "GPU version does not support 1D geometry." << std::endl;
-//        }
-//        exit(0);
-//    }
-
     cudaGetDeviceCount(&this->device_count);
     this->device_id = this->world_rank % this->device_count;
     cudaSetDevice(this->device_id);
@@ -45,8 +38,11 @@ StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBa
     }
     MPI_Barrier(MPI_COMM_WORLD);
     std::cout << "Bind solver rank " << this->world_rank << " to device " << this->device_id << "." << std::endl;
+#else
+    PetscInitialize(nullptr, nullptr, (char*)nullptr, nullptr);
 #endif
 }
+
 
 void StaticBTESolver::setParam(int DM, int num_theta, int num_phi, double T_ref) {
     this->num_theta = num_theta;
@@ -129,22 +125,16 @@ void StaticBTESolver::_get_const_coefficient() {
     }
     a_f_total.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
 
-#ifdef USE_GPU
     csrRowPtr.resize(N_band, std::vector<unsigned int*>(N_dir, nullptr));
     csrColInd.resize(N_band, std::vector<unsigned int*>(N_dir, nullptr));
     csrVal.resize(N_band, std::vector<double*>(N_dir, nullptr));
-#else
-    Ke_serialized.resize(N_band, vector2D<double>(N_dir, std::vector<double>()));
-#endif
 
     for (int band_index = 0; band_index < N_band; band_index++) {
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-#ifdef USE_GPU
             std::vector<unsigned int> csrRowPtr_stl;
             csrRowPtr_stl.push_back(0);
             std::vector<unsigned int> csrColInd_stl;
             std::vector<double> csrVal_stl;
-#endif
             for (int cell_index = 0; cell_index < N_cell; cell_index++) {
                 std::vector<double> Ke(N_cell, 0);
                 for (int face_index = 0; face_index < N_face; face_index++) {
@@ -174,7 +164,6 @@ void StaticBTESolver::_get_const_coefficient() {
                 else {
                     Ke[cell_index] += cell_volume[cell_index];
                 }
-#ifdef USE_GPU
                 std::vector<int> temp_indices;
                 for (int face_index = 0; face_index < N_face; face_index++) {
                     if (cell_neighbor_indices[cell_index][face_index] >= 0 && Ke[cell_neighbor_indices[cell_index][face_index]] != 0) {
@@ -189,22 +178,7 @@ void StaticBTESolver::_get_const_coefficient() {
                     csrVal_stl.push_back(Ke[index]);
                 }
                 csrRowPtr_stl.push_back(csrRowPtr_stl.back() + temp_indices.size());
-#else
-                if (Ke[cell_index] != 0) {
-                    Ke_serialized[band_index][dir_index].push_back(cell_index);
-                    Ke_serialized[band_index][dir_index].push_back(cell_index);
-                    Ke_serialized[band_index][dir_index].push_back(Ke[cell_index]);
-                }
-                for (int face_index = 0; face_index < N_face; face_index++) {
-                    if (cell_neighbor_indices[cell_index][face_index] >= 0) {
-                        Ke_serialized[band_index][dir_index].push_back(cell_index);
-                        Ke_serialized[band_index][dir_index].push_back(cell_neighbor_indices[cell_index][face_index]);
-                        Ke_serialized[band_index][dir_index].push_back(Ke[cell_neighbor_indices[cell_index][face_index]]);
-                    }
-                }
-#endif
             }
-#ifdef USE_GPU
             auto* csrRowPtr_c = new unsigned int[csrRowPtr_stl.size()];
             std::copy(csrRowPtr_stl.begin(), csrRowPtr_stl.end(), csrRowPtr_c);
             auto* csrColInd_c = new unsigned int[csrColInd_stl.size()];
@@ -214,22 +188,6 @@ void StaticBTESolver::_get_const_coefficient() {
             csrRowPtr[band_index][dir_index] = csrRowPtr_c;
             csrColInd[band_index][dir_index] = csrColInd_c;
             csrVal[band_index][dir_index] = csrVal_c;
-//            std::cout << "nnz = " << " " << csrRowPtr_c[N_cell] << std::endl;
-//            std::cout << "ColInd: " << std::endl;
-//            for (int i = 0; i < csrRowPtr_c[N_cell]; i++) {
-//                std::cout << csrColInd_c[i] <<  " ";
-//            }
-//            std::cout << std::endl << "Val:" << std::endl;
-//            for (int i = 0; i < csrRowPtr_c[N_cell]; i++) {
-//                std::cout << csrVal_c[i] <<  " ";
-//            }
-//            std::cout << std::endl << "RowPtr:" << std::endl;
-//            for (int i = 0; i < N_cell; i++) {
-//                std::cout << csrRowPtr_c[i] <<  " ";
-//            }
-//            std::cout << std::endl;
-//            exit(0);
-#endif
         }
     }
 }
@@ -337,65 +295,44 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
     return Re;
 }
 #ifndef USE_GPU
-std::vector<double> StaticBTESolver::_solve_matrix(vector2D<double>& Ke, std::vector<double>& Re) {
-    int* nnz = new int[N_cell];
-    for (int i = 0; i < N_cell; i++) {
-        *(nnz + i) = 0;
-        for (int j = 0; j < N_cell; j++)
-            if (Ke[i][j] != 0) {
-                *(nnz + i) = *(nnz + i) + 1;
-            }
-    }
+std::vector<double> StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, double* Val, std::vector<double>& Re) {
+    Mat            A;
+    Vec            b, x;
+    KSP            ksp;
+    PC             pc;
 
-    static char help[] = "Solving matrix.\n\n";
-    const double offset = 1e16;
-    PetscInitialize(nullptr, nullptr, (char*)nullptr, help);
-    Mat A;
-    Vec xxx, bbb;
-    PetscScalar v, u, yyy[N_cell];
-    PetscInt iii, jjj, one, ix[N_cell];
-    KSP ksp;
-    MatCreateSeqAIJ(PETSC_COMM_SELF, N_cell, N_cell, 3, nnz, &A);
-    for (iii = 0;iii < N_cell; iii++){
-        for (jjj = 0; jjj < N_cell; jjj++){
-            if (Ke[iii][jjj] != 0) {
-                v = Ke[iii][jjj] * offset;
-                MatSetValues(A, 1, &iii, 1, &jjj, &v, ADD_VALUES);
-            }
-        }
-    }
+    MatCreateSeqAIJWithArrays(PETSC_COMM_SELF, N_cell, N_cell, RowPtr, ColInd, Val, &A);
     MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-    VecCreate(PETSC_COMM_WORLD, &bbb);
-    VecSetSizes(bbb, PETSC_DECIDE, N_cell);
-    VecSetFromOptions(bbb);
-    VecDuplicate(bbb, &xxx);
-    for (iii = 0; iii < N_cell; iii++){
-        u = Re[iii] * offset;
-        VecSetValues(bbb, 1, &iii, &u, ADD_VALUES);
+
+    VecCreateSeq(PETSC_COMM_SELF, N_cell, &b);
+    VecDuplicate(b, &x);
+    int* indices = new int[N_cell];
+    for (int i = 0; i < N_cell; i++) {
+        indices[i] = i;
     }
+    VecSetValues(b, N_cell, indices, &Re[0], ADD_VALUES);
+    VecAssemblyBegin(b);
+    VecAssemblyEnd(b);
 
-    KSPCreate(PETSC_COMM_WORLD, &ksp);
+    KSPCreate(PETSC_COMM_SELF, &ksp);
     KSPSetOperators(ksp, A, A);
-    KSPSetFromOptions(ksp);
+    KSPGetPC(ksp, &pc);
+    PCSetType(pc, PCJACOBI);
+    KSPSetType(ksp, KSPBCGS);
+    KSPSetTolerances(ksp, 1e-9, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
 
-    KSPSolve(ksp, bbb, xxx);
+    KSPSolve(ksp, b, x);
 
-    one = N_cell;
-    std::vector<double> x(N_cell);
+    std::vector<double> res(N_cell, 0);
+    VecGetValues(x, N_cell, indices, &res[0]);
 
-    for (iii = 0; iii < N_cell; iii++)
-        ix[iii] = iii;
-
-    VecGetValues(xxx, one, ix, yyy);
-    for (iii = 0; iii < N_cell; iii++)
-        x[iii]=yyy[iii];
-    delete[] nnz;
-    VecDestroy(&xxx);
-    VecDestroy(&bbb);
+    VecDestroy(&x);
+    VecDestroy(&b);
     MatDestroy(&A);
     KSPDestroy(&ksp);
-    return x;
+
+    return res;
 }
 #endif
 
@@ -827,15 +764,11 @@ void StaticBTESolver::_iteration(int max_iter) {
                 }
                 else {
                     viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
-                    vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-9, 1000,200), chow_patel_ilu);
+                    vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-9, 1000, 200), chow_patel_ilu);
                 }
 
                 auto* sol = new double[N_cell];
                 viennacl::copy(vsol.begin(), vsol.end(), sol);
-//                for (int i = 0; i < N_cell; i++){
-//                    std::cout << sol[i] << " ";
-//                }
-//                exit(0);
                 MPI_Barrier(MPI_COMM_WORLD);
                 MPI_Allgather(sol,
                               N_cell,
@@ -848,25 +781,9 @@ void StaticBTESolver::_iteration(int max_iter) {
                 //ee_curr[band_index].print();
                 delete [] sol;
 #else
-                // reconstruct Ke
-                vector2D<double> Ke(N_cell, std::vector<double>(N_cell, 0));
-                // TODO #1 (possible optimization) Ke_serialized
-                for (int i = 0; i < Ke_serialized[band_index][dir_index].size() / 3; i++) {
-                    Ke[Ke_serialized[band_index][dir_index][3 * i]][Ke_serialized[band_index][dir_index][3 * i + 1]] = Ke_serialized[band_index][dir_index][3 * i + 2];
-                }
-//                for (int i = 0; i < N_cell; i++) {
-//                    for (int j = 0; j < N_cell; j++) {
-//                        std::cout << Ke[i][j] << " ";
-//                    }
-//                    std::cout << std::endl;
-//                }
-//                exit(0);
-//
-//                for (int i = 0; i < N_cell; i++) {
-//                    std::cout << sol[i] << " ";
-//                }
-//                exit(0);
-                std::vector<double> sol = _solve_matrix(Ke, Re);
+                std::vector<double> sol = _solve_matrix((int*)csrRowPtr[band_index][dir_index],
+                                                        (int*)csrColInd[band_index][dir_index],
+                                                        csrVal[band_index][dir_index], Re);
                 for (int cell_index = 0; cell_index < N_cell; cell_index++) {
                     *ee_curr[band_index].get_ptr(dir_index, cell_index) = sol[cell_index];
                 }
@@ -905,6 +822,9 @@ void StaticBTESolver::_iteration(int max_iter) {
 }
 
 void StaticBTESolver::_postprocess() {
+#ifndef USE_GPU
+    PetscFinalize();
+#endif
     _get_heat_flux();
 #ifdef USE_GPU
     if (this->world_rank == 0) {
