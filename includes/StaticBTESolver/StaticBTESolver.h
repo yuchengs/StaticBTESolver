@@ -14,7 +14,6 @@
 #include "StaticBTESolver/BTEBoundaryCondition.h"
 
 
-
 class StaticBTESolver {
     int num_proc;
     int world_rank;

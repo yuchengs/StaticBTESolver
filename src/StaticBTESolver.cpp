@@ -179,15 +179,12 @@ void StaticBTESolver::_get_const_coefficient() {
                 }
                 csrRowPtr_stl.push_back(csrRowPtr_stl.back() + temp_indices.size());
             }
-            auto* csrRowPtr_c = new unsigned int[csrRowPtr_stl.size()];
-            std::copy(csrRowPtr_stl.begin(), csrRowPtr_stl.end(), csrRowPtr_c);
-            auto* csrColInd_c = new unsigned int[csrColInd_stl.size()];
-            std::copy(csrColInd_stl.begin(), csrColInd_stl.end(), csrColInd_c);
-            auto* csrVal_c = new double[csrVal_stl.size()];
-            std::copy(csrVal_stl.begin(), csrVal_stl.end(), csrVal_c);
-            csrRowPtr[band_index][dir_index] = csrRowPtr_c;
-            csrColInd[band_index][dir_index] = csrColInd_c;
-            csrVal[band_index][dir_index] = csrVal_c;
+            csrRowPtr[band_index][dir_index] = new unsigned int[csrRowPtr_stl.size()];
+            std::copy(csrRowPtr_stl.begin(), csrRowPtr_stl.end(), csrRowPtr[band_index][dir_index]);
+            csrColInd[band_index][dir_index] = new unsigned int[csrColInd_stl.size()];
+            std::copy(csrColInd_stl.begin(), csrColInd_stl.end(), csrColInd[band_index][dir_index]);
+            csrVal[band_index][dir_index] = new double[csrVal_stl.size()];
+            std::copy(csrVal_stl.begin(), csrVal_stl.end(), csrVal[band_index][dir_index]);
         }
     }
 }
@@ -326,7 +323,7 @@ std::vector<double> StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, dou
 
     std::vector<double> res(N_cell, 0);
     VecGetValues(x, N_cell, indices, &res[0]);
-
+    delete [] indices;
     VecDestroy(&x);
     VecDestroy(&b);
     MatDestroy(&A);
@@ -829,6 +826,11 @@ void StaticBTESolver::_postprocess() {
     for (int band_index = 0; band_index < N_band; band_index++) {
         delete ee_curr[band_index];
         delete ee_prev[band_index];
+        for (int dir_index = 0; dir_index < N_dir; dir_index++) {
+            delete [] csrColInd[band_index][dir_index];
+            delete [] csrRowPtr[band_index][dir_index];
+            delete [] csrVal[band_index][dir_index];
+        }
     }
 #ifdef USE_GPU
     if (this->world_rank == 0) {
@@ -847,13 +849,6 @@ void StaticBTESolver::_postprocess() {
 #ifdef USE_GPU
     }
 #endif
-/*    for (int i = 0; i < N_band; i++) {
-        for (int j = 0; j < N_dir; j++) {
-            delete [] csrRowPtr[i][j];
-            delete [] csrColInd[i][j];
-            delete [] csrVal[i][j];
-        }
-    } */
 }
 
 void StaticBTESolver::solve(int max_iter) {
