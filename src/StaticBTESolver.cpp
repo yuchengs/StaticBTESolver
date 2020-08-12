@@ -96,7 +96,7 @@ void StaticBTESolver::_get_cell_temperature(int band_index) {
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
         double e0 = 0;
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-            e0 += ee_curr[band_index].get(dir_index, cell_index) * control_angles[dir_index];
+            e0 += ee_curr[band_index]->get(dir_index, cell_index) * control_angles[dir_index];
         }
         cell_band_temperature[cell_index][band_index] = e0 / (*bands)[band_index].Ctot + T_ref;
     }
@@ -210,16 +210,16 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                         for (int dir_index_inner = 0; dir_index_inner < N_dir; dir_index_inner++) {
                             if (dv_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index] > 0) {
                                 if (mesh->dim == 3) {
-                                    einsum += ee_prev[band_index].get(dir_index, cell_index)
+                                    einsum += ee_prev[band_index]->get(dir_index, cell_index)
                                               * S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
                                               * control_angles[dir_index_inner];
                                     temp += S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
                                             * control_angles[dir_index_inner];
                                 } else if (mesh->dim == 2) {
-                                    einsum += ee_prev[band_index].get(dir_index, cell_index)
+                                    einsum += ee_prev[band_index]->get(dir_index, cell_index)
                                               * S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index];
                                 } else {
-                                    einsum += ee_prev[band_index].get(dir_index, cell_index)
+                                    einsum += ee_prev[band_index]->get(dir_index, cell_index)
                                               * dv_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
                                               * control_angles[dir_index_inner];
                                 }
@@ -244,21 +244,21 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                             std::cout << "Boundary type 31 not supported for DG 1" << std::endl;
                             exit(1);
                         }
-                        Re[cell_index] -= ee_prev[band_index].get(itheta * 4 * num_phi + iphi, cell_index)
+                        Re[cell_index] -= ee_prev[band_index]->get(itheta * 4 * num_phi + iphi, cell_index)
                                           * a_f_total[band_index][dir_index][cell_index][face_index];
                     } else if (bc.type == 32) {
                         int itheta = dir_index / (4 * num_phi);
                         int iphi = dir_index % (4 * num_phi);
                         if (mesh->dim == 2) {
                             iphi = 4 * num_phi - iphi - 1;
-                            Re[cell_index] -= ee_prev[band_index].get(itheta * 4 * num_phi + iphi, cell_index)
+                            Re[cell_index] -= ee_prev[band_index]->get(itheta * 4 * num_phi + iphi, cell_index)
                                               * a_f_total[band_index][dir_index][cell_index][face_index];
                         } else if (mesh->dim == 3) {
                             int ix = iphi / (2 * num_phi);
                             int isx = iphi % (2 * num_phi);
                             isx = 2 * num_phi - isx - 1;
                             Re[cell_index] -=
-                                    ee_prev[band_index].get(itheta * 4 * num_phi + isx + ix * 2 * num_phi, cell_index)
+                                    ee_prev[band_index]->get(itheta * 4 * num_phi + isx + ix * 2 * num_phi, cell_index)
                                     * a_f_total[band_index][dir_index][cell_index][face_index];
                         }
                         else {
@@ -274,7 +274,7 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                         int iz = dir_index / (4 * num_phi);
                         int isz = dir_index % (4 * num_phi);
                         iz = 2 * num_phi - iz - 1;
-                        Re[cell_index] -= ee_prev[band_index].get(isz + iz * 4 * num_phi, cell_index)
+                        Re[cell_index] -= ee_prev[band_index]->get(isz + iz * 4 * num_phi, cell_index)
                                           * a_f_total[band_index][dir_index][cell_index][face_index];
                     } else {
                         std::cout << "Boundary Condition Type " << bc.type << " not supported. Abort." << std::endl;
@@ -341,7 +341,7 @@ double StaticBTESolver::_get_margin() {
     for (int band_index = 0; band_index < N_band; band_index++) {
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
             for (int cell_index = 0; cell_index < N_cell; cell_index++) {
-                margin += std::pow(ee_curr[band_index].get(dir_index, cell_index) - ee_prev[band_index].get(dir_index, cell_index), 2);
+                margin += std::pow(ee_curr[band_index]->get(dir_index, cell_index) - ee_prev[band_index]->get(dir_index, cell_index), 2);
             }
         }
     }
@@ -362,18 +362,18 @@ void StaticBTESolver::_get_heat_flux() {
                         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                             // TODO: check if control angle is needed
                             if (DM == 3 && mesh->dim == 3) {
-                                heat += ee_curr[band_index].get(dir_index, cell_index)
+                                heat += ee_curr[band_index]->get(dir_index, cell_index)
                                         * dv_dot_normal_cache[band_index][dir_index][cell_index][face_index]
                                         * cell_face_area[cell_index][face_index]
                                         * control_angles[dir_index];
                             }
                             else if (mesh->dim == 1) {
-                                heat += ee_curr[band_index].get(dir_index, cell_index)
+                                heat += ee_curr[band_index]->get(dir_index, cell_index)
                                         * dv_dot_normal_cache[band_index][dir_index][cell_index][face_index]
                                         * control_angles[dir_index];
                             }
                             else {
-                                heat += ee_curr[band_index].get(dir_index, cell_index)
+                                heat += ee_curr[band_index]->get(dir_index, cell_index)
                                         * S_dot_normal_cache[band_index][dir_index][cell_index][face_index]
                                         * cell_face_area[cell_index][face_index];
                             }
@@ -541,8 +541,6 @@ void StaticBTESolver::_preprocess() {
             auto ptr = std::make_shared<Point>((p1->x + p2->x + p3->x) / 3,
                                         (p1->y + p2->y + p3->y) / 3);
             cell_centers.push_back(std::move(ptr));
-            // FIXME: can be optimized to avoid creating temp object
-            // possible fix: implement getArea for shared pointer
             cell_volume.push_back(getArea(*p1, *p2, *p3));
         }
     }
@@ -556,8 +554,6 @@ void StaticBTESolver::_preprocess() {
                                         (p1->y + p2->y + p3->y + p4->y) / 4,
                                         (p1->z + p2->z + p3->z + p4->z) / 4);
             cell_centers.push_back(std::move(ptr));
-            // FIXME: can be optimized to avoid creating temp object
-            // possible fix: implement getVolume for shared pointer
             double temp = getVolume(*p1, *p2, *p3, *p4);
             cell_volume.push_back(temp);
         }
@@ -732,17 +728,22 @@ void StaticBTESolver::_iteration(int max_iter) {
     chow_patel_ilu_config.jacobi_iters(2); // two Jacobi iterations per triangular 'solve' Rx=r
 #endif
 
-    ee_curr.resize(N_band, ContinuousArray(N_dir, N_band));
+    ee_curr.resize(N_band, new ContinuousArray(N_dir, N_cell));
+    ee_prev.resize(N_band, nullptr);
     for (int iter_index = 0; iter_index < max_iter; iter_index++) {
 #ifdef USE_TIME
         auto time_start = std::chrono::high_resolution_clock::now();
 #endif
+        for (int band_index = 0; band_index < N_band; band_index++) {
+            delete ee_prev[band_index];
+        }
         ee_prev = ee_curr;
         for (int band_index = 0; band_index < N_band; band_index++) {
-            ee_curr[band_index].init(N_dir, N_cell);
+            ee_curr[band_index] = new ContinuousArray(N_dir, N_cell);
         }
-        // TIMEDEBUG:
+#ifdef USE_TIME
         auto start = std::chrono::high_resolution_clock::now();
+#endif
         for (int band_index = 0; band_index < N_band; band_index++) {
 #ifdef USE_GPU
             for (int dir_index = this->world_rank; dir_index < N_dir; dir_index += this->num_proc) {
@@ -773,19 +774,18 @@ void StaticBTESolver::_iteration(int max_iter) {
                 MPI_Allgather(sol,
                               N_cell,
                               MPI_DOUBLE,
-                              (ee_curr[band_index].data + N_cell * (dir_index - this->world_rank)),
+                              (ee_curr[band_index]->data + N_cell * (dir_index - this->world_rank)),
                               N_cell,
                               MPI_DOUBLE,
                               MPI_COMM_WORLD
                               );
-                //ee_curr[band_index].print();
                 delete [] sol;
 #else
                 std::vector<double> sol = _solve_matrix((int*)csrRowPtr[band_index][dir_index],
                                                         (int*)csrColInd[band_index][dir_index],
                                                         csrVal[band_index][dir_index], Re);
                 for (int cell_index = 0; cell_index < N_cell; cell_index++) {
-                    *ee_curr[band_index].get_ptr(dir_index, cell_index) = sol[cell_index];
+                    *ee_curr[band_index]->get_ptr(dir_index, cell_index) = sol[cell_index];
                 }
 #endif
             }
@@ -826,6 +826,10 @@ void StaticBTESolver::_postprocess() {
     PetscFinalize();
 #endif
     _get_heat_flux();
+    for (int band_index = 0; band_index < N_band; band_index++) {
+        delete ee_curr[band_index];
+        delete ee_prev[band_index];
+    }
 #ifdef USE_GPU
     if (this->world_rank == 0) {
 #endif

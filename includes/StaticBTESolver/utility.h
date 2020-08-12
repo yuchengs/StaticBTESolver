@@ -148,18 +148,18 @@ public:
         data = new double[this->dim1 * this->dim2];
         std::copy(rhs.data, rhs.data + rhs.dim1 * rhs.dim2, data);
     }
-    ContinuousArray operator=(const ContinuousArray& rhs) {
-        if (this->data) delete [] this->data;
-        this->dim1 = rhs.dim1;
-        this->dim2 = rhs.dim2;
-        data = new double[this->dim1 * this->dim2];
-        std::copy(rhs.data, rhs.data + rhs.dim1 * rhs.dim2, data);
+    ContinuousArray& operator=(const ContinuousArray& rhs) {
+        if (this != &rhs) {
+            delete[] this->data;
+            this->dim1 = rhs.dim1;
+            this->dim2 = rhs.dim2;
+            data = new double[this->dim1 * this->dim2];
+            std::copy(rhs.data, rhs.data + rhs.dim1 * rhs.dim2, data);
+        }
         return *this;
     }
     void init(int d1, int d2) {
-        if (!this->dim1 || !this->dim2) {
-            delete [] data;
-        }
+        delete [] data;
         data = new double[d1 * d2]();
         this->dim1 = d1;
         this->dim2 = d2;
@@ -173,7 +173,6 @@ public:
     void clear() const {
         std::fill_n(this->data, this->dim1 * this->dim2, 0.0);
     }
-
     void print() const {
         for (int i = 0; i < dim1; i++) {
             for (int j = 0; j < dim2; j++) {
@@ -184,7 +183,7 @@ public:
     }
 
     ~ContinuousArray() {
-        if (data && this->dim1 > 0) delete [] data;
+        delete [] data;
     }
 };
 #endif //BTESOLVER_UTILITY_H

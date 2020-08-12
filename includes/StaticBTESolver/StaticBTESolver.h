@@ -55,7 +55,7 @@ class StaticBTESolver {
     vector2D<unsigned int*> csrColInd;
     vector2D<double*> csrVal;
 
-    std::vector<ContinuousArray> ee_curr, ee_prev;
+    std::vector<ContinuousArray*> ee_curr, ee_prev;
     vector2D<double> bc_band_heat_flux;
     std::vector<double> bc_heat_flux;
 
