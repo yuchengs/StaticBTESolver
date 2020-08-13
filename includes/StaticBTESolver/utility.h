@@ -131,8 +131,6 @@ struct Band {
     }
 };
 
-std::vector<double> GaussIntegrationPoints(double a, double b, int N);
-
 class ContinuousArray {
 public:
     double *data{};
@@ -186,4 +184,9 @@ public:
         delete [] data;
     }
 };
+
+std::vector<double> GaussIntegrationPoints(double a, double b, int N);
+
+size_t get_host_memory();
+
 #endif //BTESOLVER_UTILITY_H

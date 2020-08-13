@@ -3,6 +3,9 @@
 //
 
 #include "StaticBTESolver/utility.h"
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
 
 double dot_prod(const Point& p1, const Point& p2) {
     return p1.x * p2.x + p1.y * p2.y + p1.z * p2.z;
@@ -111,4 +114,28 @@ std::vector<double> GaussIntegrationPoints(double a, double b, int N) {
     delete [] L;
     delete [] Lp;
     return gauss;
+}
+
+int parseLine(char* line){
+    // This assumes that a digit will be found and the line ends in " Kb".
+    int i = strlen(line);
+    const char* p = line;
+    while (*p <'0' || *p > '9') p++;
+    line[i-3] = '\0';
+    i = atoi(p);
+    return i;
+}
+
+size_t get_host_memory() {
+        FILE* file = fopen("/proc/self/status", "r");
+        int result = -1;
+        char line[128];
+        while (fgets(line, 128, file) != nullptr){
+            if (strncmp(line, "VmRSS:", 6) == 0){
+                result = parseLine(line);
+                break;
+            }
+        }
+        fclose(file);
+        return result;
 }
