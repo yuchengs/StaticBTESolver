@@ -8,6 +8,17 @@
 #ifdef USE_GPU
 #define VIENNACL_WITH_CUDA 1
 #include <mpi.h>
+#if SIZE_MAX == UCHAR_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_CHAR
+#elif SIZE_MAX == USHRT_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_SHORT
+#elif SIZE_MAX == UINT_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED
+#elif SIZE_MAX == ULONG_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_LONG
+#elif SIZE_MAX == ULLONG_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
+#endif
 #include "viennacl/scalar.hpp"
 #include "viennacl/vector.hpp"
 #include "viennacl/compressed_matrix.hpp"
@@ -317,7 +328,7 @@ std::vector<double> StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, dou
     KSPGetPC(ksp, &pc);
     PCSetType(pc, PCJACOBI);
     KSPSetType(ksp, KSPBCGS);
-    KSPSetTolerances(ksp, 1e-9, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
+    KSPSetTolerances(ksp, 1e-25, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
 
     KSPSolve(ksp, b, x);
 
@@ -854,6 +865,24 @@ void StaticBTESolver::_postprocess() {
 void StaticBTESolver::solve(int max_iter) {
     _preprocess();
 #ifdef USE_TIME
+    size_t host_mem_before_iter = get_host_memory();
+#ifdef USE_GPU
+    size_t *mem_sum = nullptr;
+    if (this->world_rank == 0) {
+        mem_sum = new size_t[this->num_proc];
+    }
+    MPI_Gather(&host_mem_before_iter, 1, my_MPI_SIZE_T, mem_sum, 1, my_MPI_SIZE_T, 0,
+           MPI_COMM_WORLD);
+
+    if (world_rank == 0) {
+        size_t mem = 0;
+        for (int i = 0; i < this->num_proc; i++) {
+            mem += mem_sum;
+        }
+        std::cout << "Host memory used before iteration: " << mem / 1024 << "M" << std::endl;
+        delete [] mem_sum;
+    }
+#endif
     auto start = std::chrono::high_resolution_clock::now();
 #endif
     _iteration(max_iter);
