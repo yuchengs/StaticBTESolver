@@ -47,9 +47,6 @@ class StaticBTESolver {
     vector2D<double> cell_band_temperature;
     vector2D<double> cell_band_density;
     std::vector<double> cell_temperature;
-    vector4D<double> dv_dot_normal_cache;
-    vector4D<double> S_dot_normal_cache;
-    vector4D<double> a_f_total;
     vector2D<unsigned int*> csrRowPtr;
     vector2D<unsigned int*> csrColInd;
     vector2D<double*> csrVal;
@@ -65,6 +62,10 @@ class StaticBTESolver {
     std::vector<double> _get_coefficient(int dir_index, int band_index);
 #ifndef USE_GPU
     std::vector<double> _solve_matrix(int* csrRowPtr, int* csrColInd, double* csrVal, std::vector<double>& Re);
+#endif
+#ifdef USE_GPU
+    size_t print_host_mem();
+    size_t print_device_mem();
 #endif
     double _get_margin();
     void _get_heat_flux();

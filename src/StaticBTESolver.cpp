@@ -130,72 +130,53 @@ void StaticBTESolver::_recover_temperature() {
 }
 
 void StaticBTESolver::_get_const_coefficient() {
-    dv_dot_normal_cache.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
-    if (mesh->dim > 1) {
-        S_dot_normal_cache.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
-    }
-    a_f_total.resize(N_band, vector3D<double>(N_dir, vector2D<double>(N_cell, std::vector<double>())));
-
     csrRowPtr.resize(N_band, std::vector<unsigned int*>(N_dir, nullptr));
     csrColInd.resize(N_band, std::vector<unsigned int*>(N_dir, nullptr));
     csrVal.resize(N_band, std::vector<double*>(N_dir, nullptr));
 
     for (int band_index = 0; band_index < N_band; band_index++) {
         for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-            std::vector<unsigned int> csrRowPtr_stl;
-            csrRowPtr_stl.push_back(0);
-            std::vector<unsigned int> csrColInd_stl;
-            std::vector<double> csrVal_stl;
+            int csrRowPtr_iter = 0, csrColInd_iter = 0, csrVal_iter = 0;
+            csrRowPtr[band_index][dir_index] = new unsigned int[N_cell + 1];
+            csrColInd[band_index][dir_index] = new unsigned int[N_face * N_cell + 1];
+            csrVal[band_index][dir_index] = new double[N_face * N_cell + 1];
+            csrRowPtr[band_index][dir_index][csrRowPtr_iter++] = 0;
             for (int cell_index = 0; cell_index < N_cell; cell_index++) {
-                std::vector<double> Ke(N_cell, 0);
+                std::vector<std::pair<int, double>> compressed_Ke;
+                compressed_Ke.reserve(N_face + 1);
+                double Ke_cell_index = 0;
                 for (int face_index = 0; face_index < N_face; face_index++) {
-                    double area = cell_face_area[cell_index][face_index];
-                    dv_dot_normal_cache[band_index][dir_index][cell_index].push_back(
-                            dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]));
+                    double temp = (*bands)[band_index].group_velocity * (*bands)[band_index].relaxation_time * cell_face_area[cell_index][face_index];
                     if (mesh->dim > 1) {
-                        S_dot_normal_cache[band_index][dir_index][cell_index].push_back(dot_prod(S[dir_index], cell_face_normal[cell_index][face_index]));
-                    }
-                    double temp = (*bands)[band_index].group_velocity * (*bands)[band_index].relaxation_time * area;
-                    if (mesh->dim > 1) {
-                        temp *= S_dot_normal_cache[band_index][dir_index][cell_index][face_index];
+                        temp *= dot_prod(S[dir_index], cell_face_normal[cell_index][face_index]);
                     }
                     else {
-                        temp *= dv_dot_normal_cache[band_index][dir_index][cell_index][face_index];
+                        temp *= dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]);
                     }
-                    if (dv_dot_normal_cache[band_index][dir_index][cell_index][face_index] >= 0) {
-                        Ke[cell_index] += temp;
+                    if (dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]) >= 0) {
+                        Ke_cell_index += temp;
                     } else if (cell_neighbor_indices[cell_index][face_index] >= 0) {
-                        Ke[cell_neighbor_indices[cell_index][face_index]] += temp;
+                        compressed_Ke.emplace_back(cell_neighbor_indices[cell_index][face_index], temp);
                     }
-                    a_f_total[band_index][dir_index][cell_index].push_back(temp);
                 }
                 if (mesh->dim > 1) {
-                    Ke[cell_index] += cell_volume[cell_index] * control_angles[dir_index];
+                    Ke_cell_index += cell_volume[cell_index] * control_angles[dir_index];
                 }
                 else {
-                    Ke[cell_index] += cell_volume[cell_index];
+                    Ke_cell_index += cell_volume[cell_index];
                 }
-                std::vector<int> temp_indices;
-                for (int face_index = 0; face_index < N_face; face_index++) {
-                    if (cell_neighbor_indices[cell_index][face_index] >= 0 && Ke[cell_neighbor_indices[cell_index][face_index]] != 0) {
-                        temp_indices.push_back(cell_neighbor_indices[cell_index][face_index]);
-                    }
-                }
-                if (Ke[cell_index] != 0) temp_indices.push_back(cell_index);
-                std::sort(temp_indices.begin(), temp_indices.end());
 
-                for (int index : temp_indices) {
-                    csrColInd_stl.push_back(index);
-                    csrVal_stl.push_back(Ke[index]);
+                compressed_Ke.emplace_back(cell_index, Ke_cell_index);
+
+                std::sort(compressed_Ke.begin(), compressed_Ke.end());
+                for (auto& p : compressed_Ke) {
+                    csrColInd[band_index][dir_index][csrColInd_iter++] = p.first;
+                    csrVal[band_index][dir_index][csrVal_iter++] = p.second;
                 }
-                csrRowPtr_stl.push_back(csrRowPtr_stl.back() + temp_indices.size());
+
+                csrRowPtr[band_index][dir_index][csrRowPtr_iter] = csrRowPtr[band_index][dir_index][csrRowPtr_iter - 1] + compressed_Ke.size();
+                csrRowPtr_iter++;
             }
-            csrRowPtr[band_index][dir_index] = new unsigned int[csrRowPtr_stl.size()];
-            std::copy(csrRowPtr_stl.begin(), csrRowPtr_stl.end(), csrRowPtr[band_index][dir_index]);
-            csrColInd[band_index][dir_index] = new unsigned int[csrColInd_stl.size()];
-            std::copy(csrColInd_stl.begin(), csrColInd_stl.end(), csrColInd[band_index][dir_index]);
-            csrVal[band_index][dir_index] = new double[csrVal_stl.size()];
-            std::copy(csrVal_stl.begin(), csrVal_stl.end(), csrVal[band_index][dir_index]);
         }
     }
 }
@@ -204,38 +185,45 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
     std::vector<double> Re(N_cell, 0);
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
         for (int face_index = 0; face_index < N_face; face_index++) {
+            double a_f_total = (*bands)[band_index].group_velocity * (*bands)[band_index].relaxation_time * cell_face_area[cell_index][face_index];
+            if (mesh->dim > 1) {
+                a_f_total *= dot_prod(S[dir_index], cell_face_normal[cell_index][face_index]);
+            }
+            else {
+                a_f_total *= dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]);
+            }
             for (auto bc : *bcs) {
-                if (dv_dot_normal_cache[band_index][dir_index][cell_index][face_index] >= 0) continue;
+                if (dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]) >= 0) continue;
                 if (cell_neighbor_indices[cell_index][face_index] == bc.index) {
                     if (bc.type == 1) {
                         Re[cell_index] -= (*bands)[band_index].Ctot / (solid_angle)
                                           * (bc.temperature - T_ref)
-                                          * a_f_total[band_index][dir_index][cell_index][face_index];
+                                          * a_f_total;
 
                     } else if (bc.type == 2) {
                         double einsum = 0;
                         double temp = 0;
                         for (int dir_index_inner = 0; dir_index_inner < N_dir; dir_index_inner++) {
-                            if (dv_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index] > 0) {
+                            if (dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]) > 0) {
                                 if (mesh->dim == 3) {
                                     einsum += ee_prev[band_index]->get(dir_index, cell_index)
-                                              * S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
+                                              * dot_prod(S[dir_index_inner], cell_face_normal[cell_index][face_index])
                                               * control_angles[dir_index_inner];
-                                    temp += S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
+                                    temp += dot_prod(S[dir_index_inner], cell_face_normal[cell_index][face_index])
                                             * control_angles[dir_index_inner];
                                 } else if (mesh->dim == 2) {
                                     einsum += ee_prev[band_index]->get(dir_index, cell_index)
-                                              * S_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index];
+                                              * dot_prod(S[dir_index_inner], cell_face_normal[cell_index][face_index]);
                                 } else {
                                     einsum += ee_prev[band_index]->get(dir_index, cell_index)
-                                              * dv_dot_normal_cache[band_index][dir_index_inner][cell_index][face_index]
+                                              * dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index])
                                               * control_angles[dir_index_inner];
                                 }
                             }
                         }
                         if (mesh->dim == 3) einsum = einsum / temp;
                         else einsum = einsum / PI;
-                        Re[cell_index] -= einsum * a_f_total[band_index][dir_index][cell_index][face_index];
+                        Re[cell_index] -= einsum * a_f_total;
                     } else if (bc.type == 31) {
                         int itheta = dir_index / (4 * num_phi);
                         int iphi = dir_index % (4 * num_phi);
@@ -253,21 +241,21 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                             exit(1);
                         }
                         Re[cell_index] -= ee_prev[band_index]->get(itheta * 4 * num_phi + iphi, cell_index)
-                                          * a_f_total[band_index][dir_index][cell_index][face_index];
+                                          * a_f_total;
                     } else if (bc.type == 32) {
                         int itheta = dir_index / (4 * num_phi);
                         int iphi = dir_index % (4 * num_phi);
                         if (mesh->dim == 2) {
                             iphi = 4 * num_phi - iphi - 1;
                             Re[cell_index] -= ee_prev[band_index]->get(itheta * 4 * num_phi + iphi, cell_index)
-                                              * a_f_total[band_index][dir_index][cell_index][face_index];
+                                              * a_f_total;
                         } else if (mesh->dim == 3) {
                             int ix = iphi / (2 * num_phi);
                             int isx = iphi % (2 * num_phi);
                             isx = 2 * num_phi - isx - 1;
                             Re[cell_index] -=
                                     ee_prev[band_index]->get(itheta * 4 * num_phi + isx + ix * 2 * num_phi, cell_index)
-                                    * a_f_total[band_index][dir_index][cell_index][face_index];
+                                    * a_f_total;
                         }
                         else {
                             std::cout << "Boundary type 31 not supported for DG 1" << std::endl;
@@ -283,7 +271,7 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                         int isz = dir_index % (4 * num_phi);
                         iz = 2 * num_phi - iz - 1;
                         Re[cell_index] -= ee_prev[band_index]->get(isz + iz * 4 * num_phi, cell_index)
-                                          * a_f_total[band_index][dir_index][cell_index][face_index];
+                                          * a_f_total;
                     } else {
                         std::cout << "Boundary Condition Type " << bc.type << " not supported. Abort." << std::endl;
                         exit(1);
@@ -371,18 +359,18 @@ void StaticBTESolver::_get_heat_flux() {
                             // TODO: check if control angle is needed
                             if (DM == 3 && mesh->dim == 3) {
                                 heat += ee_curr[band_index]->get(dir_index, cell_index)
-                                        * dv_dot_normal_cache[band_index][dir_index][cell_index][face_index]
+                                        * dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index])
                                         * cell_face_area[cell_index][face_index]
                                         * control_angles[dir_index];
                             }
                             else if (mesh->dim == 1) {
                                 heat += ee_curr[band_index]->get(dir_index, cell_index)
-                                        * dv_dot_normal_cache[band_index][dir_index][cell_index][face_index]
+                                        * dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index])
                                         * control_angles[dir_index];
                             }
                             else {
                                 heat += ee_curr[band_index]->get(dir_index, cell_index)
-                                        * S_dot_normal_cache[band_index][dir_index][cell_index][face_index]
+                                        * dot_prod(S[dir_index], cell_face_normal[cell_index][face_index])
                                         * cell_face_area[cell_index][face_index];
                             }
                         }
@@ -862,27 +850,35 @@ void StaticBTESolver::_postprocess() {
 #endif
 }
 
-void StaticBTESolver::solve(int max_iter) {
-    _preprocess();
-#ifdef USE_TIME
-    size_t host_mem_before_iter = get_host_memory();
 #ifdef USE_GPU
+size_t StaticBTESolver::print_host_mem() {
+    size_t host_mem_before = get_host_memory();
     size_t *mem_sum = nullptr;
     if (this->world_rank == 0) {
         mem_sum = new size_t[this->num_proc];
     }
-    MPI_Gather(&host_mem_before_iter, 1, my_MPI_SIZE_T, mem_sum, 1, my_MPI_SIZE_T, 0,
-           MPI_COMM_WORLD);
-
-    if (world_rank == 0) {
-        size_t mem = 0;
+    MPI_Gather(&host_mem_before, 1, my_MPI_SIZE_T, mem_sum, 1, my_MPI_SIZE_T, 0,
+               MPI_COMM_WORLD);
+    size_t mem = 0;
+    if (this->world_rank == 0) {
         for (int i = 0; i < this->num_proc; i++) {
-            mem += mem_sum;
+            mem += mem_sum[i];
         }
-        std::cout << "Host memory used before iteration: " << mem / 1024 << "M" << std::endl;
         delete [] mem_sum;
     }
+    return mem / 1024;
+}
+
+size_t StaticBTESolver::print_device_mem() {
+    size_t free, total;
+    cudaMemGetInfo(&free, &total);
+    return (total - free) / 1024;
+}
 #endif
+
+void StaticBTESolver::solve(int max_iter) {
+    _preprocess();
+#ifdef USE_TIME
     auto start = std::chrono::high_resolution_clock::now();
 #endif
     _iteration(max_iter);
