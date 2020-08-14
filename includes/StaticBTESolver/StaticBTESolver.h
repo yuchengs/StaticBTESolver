@@ -13,7 +13,6 @@
 #include "StaticBTESolver/BTEBand.h"
 #include "StaticBTESolver/BTEBoundaryCondition.h"
 
-
 class StaticBTESolver {
     int num_proc;
     int world_rank;
@@ -23,16 +22,13 @@ class StaticBTESolver {
     BTEMesh* mesh;
     BTEBoundaryCondition* bcs;
     BTEBand* bands;
-
     // CADOM param
     int num_theta;
     int num_phi;
     double WFACTOR;
-
     // hyper
     int DM;
     double T_ref;
-
     // intermediate variables
     int N_cell, N_dir, N_band, N_face;
     double solid_angle;
@@ -60,19 +56,20 @@ class StaticBTESolver {
     void _recover_temperature();
     void _get_const_coefficient();
     std::vector<double> _get_coefficient(int dir_index, int band_index);
-#ifndef USE_GPU
-    std::vector<double> _solve_matrix(int* csrRowPtr, int* csrColInd, double* csrVal, std::vector<double>& Re);
-#endif
-#ifdef USE_GPU
-    size_t print_host_mem();
-    size_t print_device_mem();
-#endif
+
     double _get_margin();
     void _get_heat_flux();
 
     void _preprocess();
     void _iteration(int max_iter);
     void _postprocess();
+
+#ifndef USE_GPU
+    std::vector<double> _solve_matrix(int* csrRowPtr, int* csrColInd, double* csrVal, std::vector<double>& Re);
+#else
+    size_t print_host_mem();
+    size_t print_device_mem();
+#endif
 
 public:
     StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBand* bands);

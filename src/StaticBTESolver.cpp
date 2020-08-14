@@ -180,7 +180,10 @@ void StaticBTESolver::_get_const_coefficient() {
         }
     }
 }
-
+// TODO need
+//  (*bands)[band_index], (bcs, direction_vectors, S, cell_face_normal, mesh->dim, )
+// (T_ref, N_cell, N_face, N_band, N_dir, PI), ee_prev[band_index], dir_index, band_index,
+// (num_phi), (num_theta), (cell_volume), (control_angle), cell_band_density[band_index]
 std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_index) {
     std::vector<double> Re(N_cell, 0);
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
@@ -216,7 +219,7 @@ std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_in
                                               * dot_prod(S[dir_index_inner], cell_face_normal[cell_index][face_index]);
                                 } else {
                                     einsum += ee_prev[band_index]->get(dir_index, cell_index)
-                                              * dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index])
+                                              * dot_prod(direction_vectors[dir_index_inner], cell_face_normal[cell_index][face_index])
                                               * control_angles[dir_index_inner];
                                 }
                             }
@@ -522,18 +525,13 @@ void StaticBTESolver::_preprocess() {
     // compute cell center and cell volume/area
     cell_centers.reserve(N_cell);
     cell_volume.reserve(N_cell);
-    std::vector<std::vector<int>> meshPt_1D_map;
     std::vector<std::vector<int>> meshPt_2D_map;
     std::vector<std::vector<int>> meshPt_3D_map;
     if (mesh->dim == 1) {
-        meshPt_1D_map.resize(mesh->meshPts.size());
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             auto ptr = std::make_shared<Point>(mesh->L_x / N_cell * (cell_index + 0.5));
             cell_centers.push_back(std::move(ptr));
             cell_volume.push_back(mesh->L_x / N_cell);
-            for (int pt_index : mesh->elements1D[cell_index]->index) {
-                meshPt_1D_map[pt_index].push_back(cell_index);
-            }
         }
     }
     else if (mesh->dim == 2) {
@@ -732,7 +730,6 @@ void StaticBTESolver::_iteration(int max_iter) {
                   << "num_phi: " << num_phi << std::endl << std::endl;
 #ifdef USE_GPU
     }
-
 
     viennacl::linalg::chow_patel_tag chow_patel_ilu_config;
     chow_patel_ilu_config.sweeps(3);       // three nonlinear sweeps
