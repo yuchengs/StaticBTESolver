@@ -522,14 +522,22 @@ void StaticBTESolver::_preprocess() {
     // compute cell center and cell volume/area
     cell_centers.reserve(N_cell);
     cell_volume.reserve(N_cell);
+    std::vector<std::vector<int>> meshPt_1D_map;
+    std::vector<std::vector<int>> meshPt_2D_map;
+    std::vector<std::vector<int>> meshPt_3D_map;
     if (mesh->dim == 1) {
+        meshPt_1D_map.resize(mesh->meshPts.size());
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             auto ptr = std::make_shared<Point>(mesh->L_x / N_cell * (cell_index + 0.5));
             cell_centers.push_back(std::move(ptr));
             cell_volume.push_back(mesh->L_x / N_cell);
+            for (int pt_index : mesh->elements1D[cell_index]->index) {
+                meshPt_1D_map[pt_index].push_back(cell_index);
+            }
         }
     }
     else if (mesh->dim == 2) {
+        meshPt_2D_map.resize(mesh->meshPts.size());
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             auto p1 = mesh->meshPts[mesh->elements2D[cell_index]->index[0]];
             auto p2 = mesh->meshPts[mesh->elements2D[cell_index]->index[1]];
@@ -538,9 +546,13 @@ void StaticBTESolver::_preprocess() {
                                         (p1->y + p2->y + p3->y) / 3);
             cell_centers.push_back(std::move(ptr));
             cell_volume.push_back(getArea(*p1, *p2, *p3));
+            for (int pt_index : mesh->elements2D[cell_index]->index) {
+                meshPt_2D_map[pt_index].push_back(cell_index);
+            }
         }
     }
     else if (mesh->dim == 3) {
+        meshPt_3D_map.resize(mesh->meshPts.size());
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             auto p1 = mesh->meshPts[mesh->elements3D[cell_index]->index[0]];
             auto p2 = mesh->meshPts[mesh->elements3D[cell_index]->index[1]];
@@ -552,6 +564,9 @@ void StaticBTESolver::_preprocess() {
             cell_centers.push_back(std::move(ptr));
             double temp = getVolume(*p1, *p2, *p3, *p4);
             cell_volume.push_back(temp);
+            for (int pt_index : mesh->elements3D[cell_index]->index) {
+                meshPt_3D_map[pt_index].push_back(cell_index);
+            }
         }
     }
     else {
@@ -632,7 +647,7 @@ void StaticBTESolver::_preprocess() {
             for (int edge_index = 0; edge_index < N_face; edge_index++) {
                 int v1 = mesh->elements2D[cell_index]->index[(edge_index + 1) % N_face];
                 int v2 = mesh->elements2D[cell_index]->index[(edge_index + 2) % N_face];
-                for (int neighbor_index = 0; neighbor_index < N_cell; neighbor_index++) {
+                for (int neighbor_index : meshPt_2D_map[v1]) {
                     if (cell_index == neighbor_index) continue;
                     int* neighbor_ptr = mesh->elements2D[neighbor_index]->index;
                     int hit = 0;
@@ -670,7 +685,7 @@ void StaticBTESolver::_preprocess() {
                 int v1 = mesh->elements3D[cell_index]->index[(face_index + 1) % N_face];
                 int v2 = mesh->elements3D[cell_index]->index[(face_index + 2) % N_face];
                 int v3 = mesh->elements3D[cell_index]->index[(face_index + 3) % N_face];
-                for (int neighbor_index = 0; neighbor_index < N_cell; neighbor_index++) {
+                for (int neighbor_index : meshPt_3D_map[v1]) {
                     if (cell_index == neighbor_index) continue;
                     int* neighbor_ptr = mesh->elements3D[neighbor_index]->index;
                     int hit = 0;
