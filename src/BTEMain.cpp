@@ -201,6 +201,6 @@ int main (int argc, char **argv) {
     delete bcs;
     delete bands;
 #ifdef USE_GPU
-    MPI::Finalize();
+    MPI_Finalize();
 #endif
 }
