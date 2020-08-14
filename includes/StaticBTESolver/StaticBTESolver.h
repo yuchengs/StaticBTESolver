@@ -18,6 +18,12 @@ class StaticBTESolver {
     int world_rank;
     int device_count;
     int device_id;
+#ifdef USE_GPU
+    int* dev_num_proc_ptr;
+    int* dev_world_rank_ptr;
+    int* dev_device_count_ptr;
+    int* device_id_ptr;
+#endif
     // cache
     BTEMesh* mesh;
     BTEBoundaryCondition* bcs;
@@ -26,11 +32,24 @@ class StaticBTESolver {
     int num_theta;
     int num_phi;
     double WFACTOR;
+#ifdef USE_GPU
+    int* dev_num_theta_ptr;
+    int* dev_num_phi_ptr;
+    double* dev_WFACTOR_ptr;
+#endif
     // hyper
     int DM;
     double T_ref;
     // intermediate variables
     int N_cell, N_dir, N_band, N_face;
+#ifdef USE_GPU
+    int* dev_DM_ptr;
+    int* dev_T_ref_ptr;
+    int* dev_N_cell_ptr;
+    int* dev_N_dir_ptr;
+    int* dev_N_band_ptr;
+    int* dev_N_face_ptr;
+#endif
     double solid_angle;
     std::vector<double> control_angles;
     std::vector<std::shared_ptr<Point>> S;
