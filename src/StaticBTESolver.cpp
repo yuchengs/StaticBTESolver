@@ -347,10 +347,10 @@ double StaticBTESolver::_get_margin() {
 }
 
 void StaticBTESolver::_get_heat_flux() {
-    bc_band_heat_flux = vector2D<double>(bcs->size(), std::vector<double>(N_band, 0));
+    bc_band_heat_flux = staticbtesolver::vector2D<double>(bcs->size(), std::vector<double>(N_band, 0));
     bc_heat_flux = std::vector<double>(bcs->size(), 0);
     for (int bc_index = 0; bc_index < bcs->size(); bc_index++) {
-        BoundaryCondition bc = (*bcs)[bc_index];
+        staticbtesolver::BoundaryCondition bc = (*bcs)[bc_index];
         for (int band_index = 0; band_index < N_band; band_index++) {
             double cell_length = 0;
             double heat = 0;
@@ -416,11 +416,11 @@ void StaticBTESolver::_preprocess() {
                 control_angles[np] = WFACTOR / phi.size();
                 double x = control_angles[np] * sin(phi[np]);
                 double y = control_angles[np] * cos(phi[np]);
-                auto sptr = std::make_shared<Point>(x, y, 0);
+                auto sptr = std::make_shared<staticbtesolver::Point>(x, y, 0);
                 S.push_back(sptr);
                 x = sin(phi[np]);
                 y = cos(phi[np]);
-                auto dptr = std::make_shared<Point>(x, y, 0);
+                auto dptr = std::make_shared<staticbtesolver::Point>(x, y, 0);
                 direction_vectors.push_back(dptr);
             }
         }
@@ -429,7 +429,7 @@ void StaticBTESolver::_preprocess() {
             direction_vectors.reserve(N_dir);
             std::vector<double> cost, sint;
             std::vector<double> W;
-            std::vector<double> gauss = GaussIntegrationPoints(0, PI, N_dir);;
+            std::vector<double> gauss = staticbtesolver::GaussIntegrationPoints(0, PI, N_dir);;
             for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                 cost.push_back(cos(gauss[2 * dir_index]));
                 W.push_back(gauss[2 * dir_index + 1]);
@@ -437,7 +437,7 @@ void StaticBTESolver::_preprocess() {
             }
             for (int dir_index = 0; dir_index < N_dir; dir_index++) {
                 control_angles[dir_index] = W[dir_index] * 2;
-                auto dptr = std::make_shared<Point>(cost[dir_index], sint[dir_index], 0);
+                auto dptr = std::make_shared<staticbtesolver::Point>(cost[dir_index], sint[dir_index], 0);
                 direction_vectors.push_back(dptr);
             }
             this->WFACTOR = 0;
@@ -479,13 +479,13 @@ void StaticBTESolver::_preprocess() {
                     double y = WFACTOR * cos(phi[np]) * sin(0.5 * delta_phi) *
                                (delta_theta - cos(2 * theta[nt]) * sin(delta_theta));
                     double z = WFACTOR * 0.5 * delta_phi * sin(2 * theta[nt]) * sin(delta_theta);
-                    auto sptr = std::make_shared<Point>(x, y, z);
+                    auto sptr = std::make_shared<staticbtesolver::Point>(x, y, z);
                     S.push_back(sptr);
 
                     x = sin(theta[nt]) * sin(phi[np]);
                     y = sin(theta[nt]) * cos(phi[np]);
                     z = cos(theta[nt]);
-                    auto dptr = std::make_shared<Point>(x, y, z);
+                    auto dptr = std::make_shared<staticbtesolver::Point>(x, y, z);
                     direction_vectors.push_back(dptr);
                 }
             }
@@ -495,8 +495,8 @@ void StaticBTESolver::_preprocess() {
             direction_vectors.reserve(N_dir);
             std::vector<double> cost, cosp, sint, sinp;
             std::vector<double> W, Wphi;
-            std::vector<double> gauss = GaussIntegrationPoints(-1, 1, num_theta);
-            std::vector<double> gaussp = GaussIntegrationPoints(-PI, PI, num_phi);
+            std::vector<double> gauss = staticbtesolver::GaussIntegrationPoints(-1, 1, num_theta);
+            std::vector<double> gaussp = staticbtesolver::GaussIntegrationPoints(-PI, PI, num_phi);
             for (int i = 0; i < num_theta; i++) {
                 cost.push_back(gauss[2 * i]);
                 W.push_back(gauss[2 * i + 1]);
@@ -510,7 +510,7 @@ void StaticBTESolver::_preprocess() {
             for (int i = 0; i< num_theta; i++) {
                 for (int j = 0; j < num_phi; j++) {
                     control_angles[i * num_phi + j] = W[i] * Wphi[j];
-                    auto dptr = std::make_shared<Point>(cost[i], sint[i] * cosp[j], sint[i] * sinp[j]);
+                    auto dptr = std::make_shared<staticbtesolver::Point>(cost[i], sint[i] * cosp[j], sint[i] * sinp[j]);
                     direction_vectors.push_back(std::move(dptr));
                 }
             }
@@ -528,7 +528,7 @@ void StaticBTESolver::_preprocess() {
     std::vector<std::vector<int>> meshPt_3D_map;
     if (mesh->dim == 1) {
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
-            auto ptr = std::make_shared<Point>(mesh->L_x / N_cell * (cell_index + 0.5));
+            auto ptr = std::make_shared<staticbtesolver::Point>(mesh->L_x / N_cell * (cell_index + 0.5));
             cell_centers.push_back(std::move(ptr));
             cell_volume.push_back(mesh->L_x / N_cell);
         }
@@ -539,7 +539,7 @@ void StaticBTESolver::_preprocess() {
             auto p1 = mesh->meshPts[mesh->elements2D[cell_index]->index[0]];
             auto p2 = mesh->meshPts[mesh->elements2D[cell_index]->index[1]];
             auto p3 = mesh->meshPts[mesh->elements2D[cell_index]->index[2]];
-            auto ptr = std::make_shared<Point>((p1->x + p2->x + p3->x) / 3,
+            auto ptr = std::make_shared<staticbtesolver::Point>((p1->x + p2->x + p3->x) / 3,
                                         (p1->y + p2->y + p3->y) / 3);
             cell_centers.push_back(std::move(ptr));
             cell_volume.push_back(getArea(*p1, *p2, *p3));
@@ -555,7 +555,7 @@ void StaticBTESolver::_preprocess() {
             auto p2 = mesh->meshPts[mesh->elements3D[cell_index]->index[1]];
             auto p3 = mesh->meshPts[mesh->elements3D[cell_index]->index[2]];
             auto p4 = mesh->meshPts[mesh->elements3D[cell_index]->index[3]];
-            auto ptr = std::make_shared<Point>((p1->x + p2->x + p3->x + p4->x) / 4,
+            auto ptr = std::make_shared<staticbtesolver::Point>((p1->x + p2->x + p3->x + p4->x) / 4,
                                         (p1->y + p2->y + p3->y + p4->y) / 4,
                                         (p1->z + p2->z + p3->z + p4->z) / 4);
             cell_centers.push_back(std::move(ptr));
@@ -572,14 +572,14 @@ void StaticBTESolver::_preprocess() {
     }
 
     // compute cell face normal vector and cell face area
-    cell_face_normal.resize(N_cell, std::vector<std::shared_ptr<Point>>(N_face));
+    cell_face_normal.resize(N_cell, std::vector<std::shared_ptr<staticbtesolver::Point>>(N_face));
     cell_face_area.resize(N_cell, std::vector<double>(N_face));
     if (mesh->dim == 1) {
         for (int cell_index = 0; cell_index < N_cell; cell_index++) {
             cell_face_area[cell_index][0] = 1;
             cell_face_area[cell_index][1] = 1;
-            cell_face_normal[cell_index][0] = std::make_shared<Point>(-1);
-            cell_face_normal[cell_index][1] = std::make_shared<Point>(1);
+            cell_face_normal[cell_index][0] = std::make_shared<staticbtesolver::Point>(-1);
+            cell_face_normal[cell_index][1] = std::make_shared<staticbtesolver::Point>(1);
         }
     }
     else if (mesh->dim == 2) {
@@ -589,10 +589,10 @@ void StaticBTESolver::_preprocess() {
                 auto p1 = mesh->meshPts[mesh->elements2D[cell_index]->index[(edge_index + 1) % N_face]];
                 auto p2 = mesh->meshPts[mesh->elements2D[cell_index]->index[(edge_index + 2) % N_face]];
                 cell_face_area[cell_index][edge_index] = getLength(p1, p2);
-                auto p01 = std::make_shared<Point>(p0->x - p1->x, p0->y - p1->y);
-                auto norm = std::make_shared<Point>(p2->y - p1->y, p1->x - p2->x);
+                auto p01 = std::make_shared<staticbtesolver::Point>(p0->x - p1->x, p0->y - p1->y);
+                auto norm = std::make_shared<staticbtesolver::Point>(p2->y - p1->y, p1->x - p2->x);
                 if (dot_prod(norm, p01) > 0) {
-                    *norm = Point() - *norm;
+                    *norm = staticbtesolver::Point() - *norm;
                 }
                 *norm = *norm / norm->length();
                 cell_face_normal[cell_index][edge_index] = norm;
@@ -607,15 +607,15 @@ void StaticBTESolver::_preprocess() {
                 auto p2 = mesh->meshPts[mesh->elements3D[cell_index]->index[(face_index + 2) % 4]];
                 auto p3 = mesh->meshPts[mesh->elements3D[cell_index]->index[(face_index + 3) % 4]];
                 cell_face_area[cell_index][face_index] = getArea(p1, p2, p3);
-                auto p31 = std::make_shared<Point>();
-                auto p32 = std::make_shared<Point>();
-                auto p01 = std::make_shared<Point>();
+                auto p31 = std::make_shared<staticbtesolver::Point>();
+                auto p32 = std::make_shared<staticbtesolver::Point>();
+                auto p01 = std::make_shared<staticbtesolver::Point>();
                 *p31 = *p3 - *p1;
                 *p32 = *p3 - *p2;
                 *p01 = *p0 - *p1;
                 auto norm = cross_prod(p31, p32);
                 if (dot_prod(norm, p01) > 0) {
-                    *norm = Point() - *norm;
+                    *norm = staticbtesolver::Point() - *norm;
                 }
                 *norm = *norm / norm->length();
                 cell_face_normal[cell_index][face_index] = norm;
@@ -735,7 +735,7 @@ void StaticBTESolver::_iteration(int max_iter) {
     chow_patel_ilu_config.jacobi_iters(2); // two Jacobi iterations per triangular 'solve' Rx=r
 #endif
 
-    ee_curr.resize(N_band, new ContinuousArray(N_dir, N_cell));
+    ee_curr.resize(N_band, new staticbtesolver::ContinuousArray(N_dir, N_cell));
     ee_prev.resize(N_band, nullptr);
     for (int iter_index = 0; iter_index < max_iter; iter_index++) {
 #ifdef USE_TIME
@@ -746,7 +746,7 @@ void StaticBTESolver::_iteration(int max_iter) {
         }
         ee_prev = ee_curr;
         for (int band_index = 0; band_index < N_band; band_index++) {
-            ee_curr[band_index] = new ContinuousArray(N_dir, N_cell);
+            ee_curr[band_index] = new staticbtesolver::ContinuousArray(N_dir, N_cell);
         }
 #ifdef USE_TIME
         auto start = std::chrono::high_resolution_clock::now();
@@ -845,6 +845,7 @@ void StaticBTESolver::_postprocess() {
 #ifdef USE_GPU
     if (this->world_rank == 0) {
 #endif
+        std::cout << std::endl;
         std::ofstream outFile;
         outFile.open("Tempcell.dat");
         for (int i = 0; i < N_cell; i++) {
@@ -863,7 +864,7 @@ void StaticBTESolver::_postprocess() {
 
 #ifdef USE_GPU
 size_t StaticBTESolver::print_host_mem() {
-    size_t host_mem_before = get_host_memory();
+    size_t host_mem_before = staticbtesolver::get_host_memory();
     size_t *mem_sum = nullptr;
     if (this->world_rank == 0) {
         mem_sum = new size_t[this->num_proc];

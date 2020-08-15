@@ -40,7 +40,7 @@ BTEGeometry::BTEGeometry(const std::string& fileName, double L_x, double L_y, do
 
     mesh->meshPts.reserve(nodeTags.size());
     for (int i = 0; i < nodeTags.size(); i++) {
-        auto ptr = std::make_shared<Point>(coord[3 * i] * L_x, coord[3 * i + 1] * L_y, coord[3 * i + 2] * L_z);
+        auto ptr = std::make_shared<staticbtesolver::Point>(coord[3 * i] * L_x, coord[3 * i + 1] * L_y, coord[3 * i + 2] * L_z);
         mesh->meshPts.push_back(ptr);
     }
 
@@ -68,7 +68,7 @@ BTEGeometry::BTEGeometry(const std::string& fileName, double L_x, double L_y, do
             for (int element_index = 0; element_index < elementTags[elementType_index].size(); element_index++) {
                 int start = nodeTag_to_mesh_index[nodeTags1D[elementType_index][2 * element_index]];
                 int end = nodeTag_to_mesh_index[nodeTags1D[elementType_index][2 * element_index + 1]];
-                auto ptr = std::make_shared<Segment>(start, end, p.second);
+                auto ptr = std::make_shared<staticbtesolver::Segment>(start, end, p.second);
                 mesh->elements1D.push_back(ptr);
             }
         }
@@ -94,7 +94,7 @@ BTEGeometry::BTEGeometry(const std::string& fileName, double L_x, double L_y, do
                 int tri1 = nodeTag_to_mesh_index[nodeTags2D[elementType_index][3 * element_index]];
                 int tri2 = nodeTag_to_mesh_index[nodeTags2D[elementType_index][3 * element_index + 1]];
                 int tri3 = nodeTag_to_mesh_index[nodeTags2D[elementType_index][3 * element_index + 2]];
-                auto ptr = std::make_shared<Triangle>(tri1, tri2, tri3, p.second);
+                auto ptr = std::make_shared<staticbtesolver::Triangle>(tri1, tri2, tri3, p.second);
                 mesh->elements2D.push_back(ptr);
             }
         }
@@ -121,7 +121,7 @@ BTEGeometry::BTEGeometry(const std::string& fileName, double L_x, double L_y, do
                 int tet2 = nodeTag_to_mesh_index[nodeTags3D[elementType_index][4 * element_index + 1]];
                 int tet3 = nodeTag_to_mesh_index[nodeTags3D[elementType_index][4 * element_index + 2]];
                 int tet4 = nodeTag_to_mesh_index[nodeTags3D[elementType_index][4 * element_index + 3]];
-                auto ptr = std::make_shared<Tetrahedron>(tet1, tet2, tet3, tet4);
+                auto ptr = std::make_shared<staticbtesolver::Tetrahedron>(tet1, tet2, tet3, tet4);
                 mesh->elements3D.push_back(ptr);
             }
         }

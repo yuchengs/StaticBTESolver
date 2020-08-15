@@ -37,7 +37,7 @@ BTEMesh::BTEMesh(std::ifstream& inFile, double L_x, double L_y, double L_z) {
     }
 
     for (int i = 0; i < num_meshPts; i++) {
-        auto ptr = std::make_shared<Point>();
+        auto ptr = std::make_shared<staticbtesolver::Point>();
         if (this->dim == 3) {
             double x, y, z;
             inFile >> x >> y >> z;
@@ -72,7 +72,7 @@ BTEMesh::BTEMesh(std::ifstream& inFile, double L_x, double L_y, double L_z) {
     elements1D.reserve(num_1D);
     getline(inFile, line);
     for (int i = 0; i < num_1D; i++) {
-        auto ptr = std::make_shared<Segment>();
+        auto ptr = std::make_shared<staticbtesolver::Segment>();
         inFile >> ptr->index[0] >> ptr->index[1];
         elements1D.push_back(std::move(ptr));
     }
@@ -97,7 +97,7 @@ BTEMesh::BTEMesh(std::ifstream& inFile, double L_x, double L_y, double L_z) {
     elements2D.reserve(num_2D);
     getline(inFile, line);
     for (int i = 0; i < num_2D; i++) {
-        auto ptr = std::make_shared<Triangle>();
+        auto ptr = std::make_shared<staticbtesolver::Triangle>();
         inFile >> ptr->index[0] >> ptr->index[1] >> ptr->index[2];
         elements2D.push_back(std::move(ptr));
     }
@@ -123,7 +123,7 @@ BTEMesh::BTEMesh(std::ifstream& inFile, double L_x, double L_y, double L_z) {
     elements3D.reserve(num_3D);
     getline(inFile, line);
     for (int i = 0; i < num_3D; i++) {
-        auto ptr = std::make_shared<Tetrahedron>();
+        auto ptr = std::make_shared<staticbtesolver::Tetrahedron>();
         inFile >> ptr->index[0] >> ptr->index[1] >> ptr->index[2] >> ptr->index[3];
         elements3D.push_back(std::move(ptr));
     }
@@ -136,12 +136,12 @@ BTEMesh::BTEMesh(int N_cell, double L_x) {
     this->dim = 1;
     meshPts.reserve(N_cell + 1);
     for (int cell_index = 0; cell_index < N_cell + 1; cell_index++) {
-        auto ptr = std::make_shared<Point>(L_x / N_cell * cell_index);
+        auto ptr = std::make_shared<staticbtesolver::Point>(L_x / N_cell * cell_index);
         meshPts.push_back(std::move(ptr));
     }
     elements1D.reserve(N_cell);
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
-        auto ptr = std::make_shared<Segment>(cell_index, cell_index + 1);
+        auto ptr = std::make_shared<staticbtesolver::Segment>(cell_index, cell_index + 1);
         elements1D.push_back(std::move(ptr));
     }
 }

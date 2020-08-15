@@ -13,7 +13,7 @@
 #include "utility.h"
 
 class BTEBoundaryCondition {
-    using BoundaryConditionList = std::vector<BoundaryCondition>;
+    using BoundaryConditionList = std::vector<staticbtesolver::BoundaryCondition>;
 public:
     BoundaryConditionList boundaryConditions;
     BTEBoundaryCondition() = default;
@@ -27,7 +27,7 @@ public:
     const_iterator end() const;
     std::size_t size() const;
 
-    const BoundaryCondition& operator[](std::size_t i) const;
+    const staticbtesolver::BoundaryCondition& operator[](std::size_t i) const;
     friend std::ostream& operator<<(std::ostream& os, const BTEBoundaryCondition& bc);
 };
 

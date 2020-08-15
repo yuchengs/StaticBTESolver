@@ -12,6 +12,8 @@
 
 #include "utility.h"
 
+using namespace staticbtesolver;
+
 class BTEBand {
     using BandList = std::vector<Band>;
     BandList bands;

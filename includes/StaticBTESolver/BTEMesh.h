@@ -18,11 +18,11 @@
 class BTEMesh {
 public:
     int dim{};
-    double L_x, L_y, L_z;
-    std::vector<std::shared_ptr<Point>> meshPts;
-    std::vector<std::shared_ptr<Segment>> elements1D;
-    std::vector<std::shared_ptr<Triangle>> elements2D;
-    std::vector<std::shared_ptr<Tetrahedron>> elements3D;
+    double L_x{}, L_y{}, L_z{};
+    std::vector<std::shared_ptr<staticbtesolver::Point>> meshPts;
+    std::vector<std::shared_ptr<staticbtesolver::Segment>> elements1D;
+    std::vector<std::shared_ptr<staticbtesolver::Triangle>> elements2D;
+    std::vector<std::shared_ptr<staticbtesolver::Tetrahedron>> elements3D;
     BTEMesh() = default;
     BTEMesh(std::ifstream& inFile, double L_x, double L_y = 0, double L_z = 0);
     BTEMesh(int N_cell, double L_x);

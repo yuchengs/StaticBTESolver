@@ -15,7 +15,7 @@ BTEBoundaryCondition::BTEBoundaryCondition(std::ifstream& inFile) {
     for (int i = 0; i < 3; i++)
         getline(inFile, line);
     for (int i = 0; i < num; i++) {
-        BoundaryCondition bc;
+        staticbtesolver::BoundaryCondition bc;
         int temp;
         inFile >> temp >> bc.type >> bc.temperature;
         bc.index = - temp - 1;
@@ -36,7 +36,7 @@ std::size_t BTEBoundaryCondition::size() const {
     return boundaryConditions.size();
 }
 
-const BoundaryCondition& BTEBoundaryCondition::operator[](std::size_t i) const {
+const staticbtesolver::BoundaryCondition& BTEBoundaryCondition::operator[](std::size_t i) const {
     return boundaryConditions[i];
 };
 

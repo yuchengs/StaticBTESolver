@@ -19,15 +19,6 @@ using namespace std::chrono;
 
 using namespace std;
 
-/*
- * Command Line Utility to use the solver
- * Usage: -g    follow by a geo file, 3 double representing Lx, Ly, Lz
- *        -m    follow by a .dat file specifying bands information
- *        -b    follow by a .dat file specifying each boundary condition,
- *              if this argument is not provided, you have to provide boundary conditions
- *              interactively in the command line
- */
-
 int main (int argc, char **argv) {
 #ifdef USE_GPU
     MPI_Init(nullptr, nullptr);
@@ -193,14 +184,13 @@ int main (int argc, char **argv) {
 #ifdef USE_TIME
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
-
-    cout << "Time taken by solver: "
+    cout << "Time taken by process: "
          << duration.count() * 0.001 << " milliseconds" << endl;
 #endif
     delete mesh;
     delete bcs;
     delete bands;
 #ifdef USE_GPU
-    MPI::Finalize();
+    MPI_Finalize();
 #endif
 }
