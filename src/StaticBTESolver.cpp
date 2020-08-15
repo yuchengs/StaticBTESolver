@@ -317,8 +317,8 @@ std::vector<double> StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, dou
     KSPSetOperators(ksp, A, A);
     KSPGetPC(ksp, &pc);
     PCSetType(pc, PCJACOBI);
-    KSPSetType(ksp, KSPBCGS);
-    KSPSetTolerances(ksp, 1e-25, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
+//    KSPSetType(ksp, KSPBCGS);
+//    KSPSetTolerances(ksp, 1e-25, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
 
     KSPSolve(ksp, b, x);
 
