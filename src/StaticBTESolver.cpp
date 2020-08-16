@@ -168,7 +168,7 @@ void StaticBTESolver::_get_Ke(int band_index, int dir_index, unsigned int* csrRo
     }
 }
 
-std::vector<double> StaticBTESolver::_get_Re(int dir_index, int band_index) {
+std::vector<double> StaticBTESolver::_get_Re(int band_index, int dir_index) {
     std::vector<double> Re(N_cell, 0);
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
         for (int face_index = 0; face_index < N_face; face_index++) {
@@ -303,7 +303,7 @@ std::vector<double> StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, dou
     KSPGetPC(ksp, &pc);
     PCSetType(pc, PCJACOBI);
 //    KSPSetType(ksp, KSPBCGS);
-//    KSPSetTolerances(ksp, 1e-25, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
+    KSPSetTolerances(ksp, 1e-9, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
 
     KSPSolve(ksp, b, x);
 
@@ -745,7 +745,7 @@ void StaticBTESolver::_iteration(int max_iter) {
                 auto csrColInd = new unsigned int[N_face * N_cell + 1];
                 auto csrVal = new double[N_face * N_cell + 1];
                 _get_Ke(band_index, dir_index, csrRowPtr, csrColInd, csrVal);
-                std::vector<double> Re = _get_Re(dir_index, band_index);
+                std::vector<double> Re = _get_Re(band_index, dir_index);
 #ifdef USE_GPU
                 unsigned int nnz = csrRowPtr[N_cell];
                 viennacl::compressed_matrix<double> vKe;

@@ -55,7 +55,7 @@ class StaticBTESolver {
     // some utility functions
     void _get_cell_temperature(int band_index);
     void _recover_temperature();
-    std::vector<double> _get_Re(int dir_index, int band_index);
+    std::vector<double> _get_Re(int band_index, int dir_index);
     void _get_Ke(int band_index, int dir_index, unsigned int* csrRowPtr, unsigned int* csrColInd, double* csrVal);
     double _get_margin();
     void _get_heat_flux();
