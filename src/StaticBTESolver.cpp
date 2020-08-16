@@ -128,62 +128,47 @@ void StaticBTESolver::_recover_temperature() {
     }
 }
 
-void StaticBTESolver::_get_const_coefficient() {
-    csrRowPtr.resize(N_band, std::vector<unsigned int*>(N_dir, nullptr));
-    csrColInd.resize(N_band, std::vector<unsigned int*>(N_dir, nullptr));
-    csrVal.resize(N_band, std::vector<double*>(N_dir, nullptr));
-
-    for (int band_index = 0; band_index < N_band; band_index++) {
-        for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-            int csrRowPtr_iter = 0, csrColInd_iter = 0, csrVal_iter = 0;
-            csrRowPtr[band_index][dir_index] = new unsigned int[N_cell + 1];
-            csrColInd[band_index][dir_index] = new unsigned int[N_face * N_cell + 1];
-            csrVal[band_index][dir_index] = new double[N_face * N_cell + 1];
-            csrRowPtr[band_index][dir_index][csrRowPtr_iter++] = 0;
-            for (int cell_index = 0; cell_index < N_cell; cell_index++) {
-                std::vector<std::pair<int, double>> compressed_Ke;
-                compressed_Ke.reserve(N_face + 1);
-                double Ke_cell_index = 0;
-                for (int face_index = 0; face_index < N_face; face_index++) {
-                    double temp = (*bands)[band_index].group_velocity * (*bands)[band_index].relaxation_time * cell_face_area[cell_index][face_index];
-                    if (mesh->dim > 1) {
-                        temp *= dot_prod(S[dir_index], cell_face_normal[cell_index][face_index]);
-                    }
-                    else {
-                        temp *= dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]);
-                    }
-                    if (dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]) >= 0) {
-                        Ke_cell_index += temp;
-                    } else if (cell_neighbor_indices[cell_index][face_index] >= 0) {
-                        compressed_Ke.emplace_back(cell_neighbor_indices[cell_index][face_index], temp);
-                    }
-                }
-                if (mesh->dim > 1) {
-                    Ke_cell_index += cell_volume[cell_index] * control_angles[dir_index];
-                }
-                else {
-                    Ke_cell_index += cell_volume[cell_index];
-                }
-
-                compressed_Ke.emplace_back(cell_index, Ke_cell_index);
-
-                std::sort(compressed_Ke.begin(), compressed_Ke.end());
-                for (auto& p : compressed_Ke) {
-                    csrColInd[band_index][dir_index][csrColInd_iter++] = p.first;
-                    csrVal[band_index][dir_index][csrVal_iter++] = p.second;
-                }
-
-                csrRowPtr[band_index][dir_index][csrRowPtr_iter] = csrRowPtr[band_index][dir_index][csrRowPtr_iter - 1] + compressed_Ke.size();
-                csrRowPtr_iter++;
+void StaticBTESolver::_get_Ke(int band_index, int dir_index, unsigned int* csrRowPtr, unsigned int* csrColInd, double* csrVal) {
+    int csrRowPtr_iter = 0, csrColInd_iter = 0, csrVal_iter = 0;
+    csrRowPtr[csrRowPtr_iter++] = 0;
+    for (int cell_index = 0; cell_index < N_cell; cell_index++) {
+        std::vector<std::pair<int, double>> compressed_Ke;
+        compressed_Ke.reserve(N_face + 1);
+        double Ke_cell_index = 0;
+        for (int face_index = 0; face_index < N_face; face_index++) {
+            double temp = (*bands)[band_index].group_velocity * (*bands)[band_index].relaxation_time *
+                          cell_face_area[cell_index][face_index];
+            if (mesh->dim > 1) {
+                temp *= dot_prod(S[dir_index], cell_face_normal[cell_index][face_index]);
+            } else {
+                temp *= dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]);
+            }
+            if (dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]) >= 0) {
+                Ke_cell_index += temp;
+            } else if (cell_neighbor_indices[cell_index][face_index] >= 0) {
+                compressed_Ke.emplace_back(cell_neighbor_indices[cell_index][face_index], temp);
             }
         }
+        if (mesh->dim > 1) {
+            Ke_cell_index += cell_volume[cell_index] * control_angles[dir_index];
+        } else {
+            Ke_cell_index += cell_volume[cell_index];
+        }
+
+        compressed_Ke.emplace_back(cell_index, Ke_cell_index);
+
+        std::sort(compressed_Ke.begin(), compressed_Ke.end());
+        for (auto &p : compressed_Ke) {
+            csrColInd[csrColInd_iter++] = p.first;
+            csrVal[csrVal_iter++] = p.second;
+        }
+
+        csrRowPtr[csrRowPtr_iter] = csrRowPtr[csrRowPtr_iter - 1] + compressed_Ke.size();
+        csrRowPtr_iter++;
     }
 }
-// TODO need
-//  (*bands)[band_index], (bcs, direction_vectors, S, cell_face_normal, mesh->dim, )
-// (T_ref, N_cell, N_face, N_band, N_dir, PI), ee_prev[band_index], dir_index, band_index,
-// (num_phi), (num_theta), (cell_volume), (control_angle), cell_band_density[band_index]
-std::vector<double> StaticBTESolver::_get_coefficient(int dir_index, int band_index) {
+
+std::vector<double> StaticBTESolver::_get_Re(int dir_index, int band_index) {
     std::vector<double> Re(N_cell, 0);
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
         for (int face_index = 0; face_index < N_face; face_index++) {
@@ -715,7 +700,6 @@ void StaticBTESolver::_preprocess() {
         std::cout << "DG is not set properly." << std::endl;
         exit(1);
     }
-    _get_const_coefficient();
 }
 
 void StaticBTESolver::_iteration(int max_iter) {
@@ -757,18 +741,22 @@ void StaticBTESolver::_iteration(int max_iter) {
 #else
             for (int dir_index = 0; dir_index < N_dir; dir_index++) {
 #endif
-                std::vector<double> Re = _get_coefficient(dir_index, band_index);
+                auto csrRowPtr = new unsigned int[N_cell + 1];
+                auto csrColInd = new unsigned int[N_face * N_cell + 1];
+                auto csrVal = new double[N_face * N_cell + 1];
+                _get_Ke(band_index, dir_index, csrRowPtr, csrColInd, csrVal);
+                std::vector<double> Re = _get_Re(dir_index, band_index);
 #ifdef USE_GPU
-                unsigned int nnz = csrRowPtr[band_index][dir_index][N_cell];
+                unsigned int nnz = csrRowPtr[N_cell];
                 viennacl::compressed_matrix<double> vKe;
-                vKe.set(csrRowPtr[band_index][dir_index], csrColInd[band_index][dir_index], csrVal[band_index][dir_index], N_cell, N_cell, nnz);
+                vKe.set(csrRowPtr, csrColInd, csrVal, N_cell, N_cell, nnz);
                 viennacl::vector<double> vRe(Re.size());
                 viennacl::copy(Re, vRe);
 
                 viennacl::vector<double> vsol;
 
                 if (mesh->dim == 1) {
-                    vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::gmres_tag(1e-50, 10000, 30));
+                    vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::gmres_tag(1e-9, 10000, 30));
                 }
                 else {
                     viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
@@ -788,13 +776,16 @@ void StaticBTESolver::_iteration(int max_iter) {
                               );
                 delete [] sol;
 #else
-                std::vector<double> sol = _solve_matrix((int*)csrRowPtr[band_index][dir_index],
-                                                        (int*)csrColInd[band_index][dir_index],
-                                                        csrVal[band_index][dir_index], Re);
+                std::vector<double> sol = _solve_matrix((int*)csrRowPtr,
+                                                        (int*)csrColInd,
+                                                        csrVal, Re);
                 for (int cell_index = 0; cell_index < N_cell; cell_index++) {
                     *ee_curr[band_index]->get_ptr(dir_index, cell_index) = sol[cell_index];
                 }
 #endif
+                delete [] csrRowPtr;
+                delete [] csrColInd;
+                delete [] csrVal;
             }
             _get_cell_temperature(band_index);
         }
@@ -836,11 +827,6 @@ void StaticBTESolver::_postprocess() {
     for (int band_index = 0; band_index < N_band; band_index++) {
         delete ee_curr[band_index];
         delete ee_prev[band_index];
-        for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-            delete [] csrColInd[band_index][dir_index];
-            delete [] csrRowPtr[band_index][dir_index];
-            delete [] csrVal[band_index][dir_index];
-        }
     }
 #ifdef USE_GPU
     if (this->world_rank == 0) {

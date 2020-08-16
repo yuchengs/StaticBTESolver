@@ -47,9 +47,6 @@ class StaticBTESolver {
     vector2D<double> cell_band_temperature;
     vector2D<double> cell_band_density;
     std::vector<double> cell_temperature;
-    vector2D<unsigned int*> csrRowPtr;
-    vector2D<unsigned int*> csrColInd;
-    vector2D<double*> csrVal;
 
     std::vector<ContinuousArray*> ee_curr, ee_prev;
     vector2D<double> bc_band_heat_flux;
@@ -58,9 +55,8 @@ class StaticBTESolver {
     // some utility functions
     void _get_cell_temperature(int band_index);
     void _recover_temperature();
-    void _get_const_coefficient();
-    std::vector<double> _get_coefficient(int dir_index, int band_index);
-
+    std::vector<double> _get_Re(int dir_index, int band_index);
+    void _get_Ke(int band_index, int dir_index, unsigned int* csrRowPtr, unsigned int* csrColInd, double* csrVal);
     double _get_margin();
     void _get_heat_flux();
 
