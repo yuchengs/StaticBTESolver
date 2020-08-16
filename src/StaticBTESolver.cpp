@@ -27,6 +27,7 @@
 #include "viennacl/linalg/bicgstab.hpp"
 #include "viennacl/linalg/cg.hpp"
 #include "viennacl/linalg/gmres.hpp"
+#include "viennacl/linalg/amg.hpp"
 #else
 #include <petscksp.h>
 #endif
@@ -733,6 +734,9 @@ void StaticBTESolver::_iteration(int max_iter) {
             ee_curr[band_index] = new staticbtesolver::ContinuousArray(N_dir, N_cell);
         }
 #ifdef USE_TIME
+        auto get_Re_time = std::chrono::microseconds(0);
+        auto get_Ke_time = std::chrono::microseconds(0);
+        auto solver_time = std::chrono::microseconds(0);
         auto start = std::chrono::high_resolution_clock::now();
 #endif
         for (int band_index = 0; band_index < N_band; band_index++) {
@@ -744,8 +748,19 @@ void StaticBTESolver::_iteration(int max_iter) {
                 auto csrRowPtr = new unsigned int[N_cell + 1];
                 auto csrColInd = new unsigned int[N_face * N_cell + 1];
                 auto csrVal = new double[N_face * N_cell + 1];
+#ifdef USE_TIME
+                auto _get_Ke_start = std::chrono::high_resolution_clock::now();
+#endif
                 _get_Ke(band_index, dir_index, csrRowPtr, csrColInd, csrVal);
+#ifdef USE_TIME
+                auto _get_Ke_end = std::chrono::high_resolution_clock::now();
+#endif
                 std::vector<double> Re = _get_Re(band_index, dir_index);
+#ifdef USE_TIME
+                auto _get_Re_end = std::chrono::high_resolution_clock::now();
+                get_Re_time += std::chrono::duration_cast<std::chrono::microseconds>(_get_Re_end - _get_Ke_end);
+                get_Ke_time += std::chrono::duration_cast<std::chrono::microseconds>(_get_Ke_end - _get_Ke_start);
+#endif
 #ifdef USE_GPU
                 unsigned int nnz = csrRowPtr[N_cell];
                 viennacl::compressed_matrix<double> vKe;
@@ -754,7 +769,9 @@ void StaticBTESolver::_iteration(int max_iter) {
                 viennacl::copy(Re, vRe);
 
                 viennacl::vector<double> vsol;
-
+#ifdef USE_TIME
+                auto solver_start = std::chrono::high_resolution_clock::now();
+#endif
                 if (mesh->dim == 1) {
                     vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::gmres_tag(1e-9, 10000, 30));
                 }
@@ -762,7 +779,10 @@ void StaticBTESolver::_iteration(int max_iter) {
                     viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
                     vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-9, 1000, 200), chow_patel_ilu);
                 }
-
+#ifdef USE_TIME
+                auto solver_end = std::chrono::high_resolution_clock::now();
+                solver_time += std::chrono::duration_cast<std::chrono::microseconds>(solver_end - solver_start);
+#endif
                 auto* sol = new double[N_cell];
                 viennacl::copy(vsol.begin(), vsol.end(), sol);
                 MPI_Barrier(MPI_COMM_WORLD);
@@ -799,9 +819,13 @@ void StaticBTESolver::_iteration(int max_iter) {
 #ifdef USE_GPU
         if (this->world_rank == 0) {
 #endif
+            std::cout << "----------------------------------------------------------------------------------" << std::endl;
             std::cout << "Iteration #" << iter_index << "\t Margin per band per cell: " << margin << std::endl;
 #ifdef USE_TIME
             std::cout << "Time taken by inner loop: " << 1.0 * duration.count() / 1000 << " milliseconds" << std::endl;
+            std::cout << "Time taken by get_Ke: " << 1.0 * get_Ke_time.count() / 1000 << " milliseconds" << std::endl;
+            std::cout << "Time taken by get_Re: " << 1.0 * get_Re_time.count() / 1000 << " milliseconds" << std::endl;
+            std::cout << "Time taken by iterative solver: " << 1.0 * solver_time.count() / 1000 << " milliseconds" << std::endl;
 #endif
 #ifdef USE_GPU
         }
