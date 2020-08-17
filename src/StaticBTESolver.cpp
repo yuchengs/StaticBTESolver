@@ -173,6 +173,7 @@ std::vector<double> StaticBTESolver::_get_Re(int band_index, int dir_index) {
     std::vector<double> Re(N_cell, 0);
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
         for (int face_index = 0; face_index < N_face; face_index++) {
+            if (dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]) >= 0) continue;
             double a_f_total = (*bands)[band_index].group_velocity * (*bands)[band_index].relaxation_time * cell_face_area[cell_index][face_index];
             if (mesh->dim > 1) {
                 a_f_total *= dot_prod(S[dir_index], cell_face_normal[cell_index][face_index]);
@@ -181,7 +182,6 @@ std::vector<double> StaticBTESolver::_get_Re(int band_index, int dir_index) {
                 a_f_total *= dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]);
             }
             for (auto bc : *bcs) {
-                if (dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]) >= 0) continue;
                 if (cell_neighbor_indices[cell_index][face_index] == bc.index) {
                     if (bc.type == 1) {
                         Re[cell_index] -= (*bands)[band_index].Ctot / (solid_angle)
@@ -855,18 +855,18 @@ void StaticBTESolver::_postprocess() {
 #ifdef USE_GPU
     if (this->world_rank == 0) {
 #endif
-        std::cout << std::endl;
-        std::ofstream outFile;
-        outFile.open("Tempcell.dat");
-        for (int i = 0; i < N_cell; i++) {
-            outFile << (cell_centers[i]->x) / mesh->L_x << " "
-                    << (cell_centers[i]->y) / mesh->L_y << " ";
-            if (mesh->dim == 3) {
-                outFile << (cell_centers[i]->z) / mesh->L_z << " ";
-            }
-            outFile << cell_temperature[i] << std::endl;
+    std::cout << std::endl;
+    std::ofstream outFile;
+    outFile.open("Tempcell.dat");
+    for (int i = 0; i < N_cell; i++) {
+        outFile << (cell_centers[i]->x) / mesh->L_x << " "
+                << (cell_centers[i]->y) / mesh->L_y << " ";
+        if (mesh->dim == 3) {
+            outFile << (cell_centers[i]->z) / mesh->L_z << " ";
         }
-        outFile.close();
+        outFile << cell_temperature[i] << std::endl;
+    }
+    outFile.close();
 #ifdef USE_GPU
     }
 #endif

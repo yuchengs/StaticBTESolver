@@ -14,7 +14,6 @@ int main() {
     bool backup;
     int ntheta, nphi;
 
-
     ifstream infile("inputdata3D.dat");
     string line;
     char newline;

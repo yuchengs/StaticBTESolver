@@ -30,17 +30,21 @@ API documentation.
 - `-y [float]` (optional): y-axis scale. Default at 0.
 - `-z [float]` (optional): z-axis scale. Default at 0.
 
+## Sample Input Files
+
 Some sample input files are in the `/tests` directory. For example, you may try
-```$xslt
-path/to/BTEcmd -g path/to/mesh2D.mphtxt \
-    -m path/to/Input-dispersion-relation-fp.dat \
-    -b path/to/Inputbc2D.dat \
-    -d 2 -t 8 -p 8 \
+
+``` 
+path/to/BTEcmd -g path/to/mesh2D.mphtxt \ 
+    -m path/to/Input-dispersion-relation-fp.dat \ 
+    -b path/to/Inputbc2D.dat \ 
+    -d 2 -t 8 -p 8 \ 
     -x 1e-7 -y 1e-7 -z 1e-7
 ```
+
 If you have installed the GPU version, use `mpirun`:
-```
-# 2 processes for 2 GPU
+
+``` 
 mpirun -np 2 path/to/BTEcmd -g path/to/mesh2D.mphtxt \
                  -m path/to/Input-dispersion-relation-fp.dat \
                  -b path/to/Inputbc2D.dat \
