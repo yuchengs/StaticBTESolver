@@ -27,7 +27,7 @@
 #include "viennacl/linalg/bicgstab.hpp"
 #include "viennacl/linalg/cg.hpp"
 #include "viennacl/linalg/gmres.hpp"
-#include "viennacl/linalg/amg.hpp"
+#include "viennacl/tools/timer.hpp"
 #else
 #include <petscksp.h>
 #endif
@@ -734,6 +734,8 @@ void StaticBTESolver::_iteration(int max_iter) {
             ee_curr[band_index] = new staticbtesolver::ContinuousArray(N_dir, N_cell);
         }
 #ifdef USE_TIME
+        int max_iter_num = 0;
+        double max_iter_error = 0;
         auto get_Re_time = std::chrono::microseconds(0);
         auto get_Ke_time = std::chrono::microseconds(0);
         auto solver_time = std::chrono::microseconds(0);
@@ -771,21 +773,39 @@ void StaticBTESolver::_iteration(int max_iter) {
                 viennacl::vector<double> vsol;
 #ifdef USE_TIME
                 auto solver_start = std::chrono::high_resolution_clock::now();
+                viennacl::tools::timer timer;
+                timer.start();
 #endif
                 if (mesh->dim == 1) {
-                    vsol = viennacl::linalg::solve(vKe, vRe, viennacl::linalg::gmres_tag(1e-9, 10000, 30));
+                    viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
+                    viennacl::linalg::gmres_tag my_gmres(1e-9, N_cell, 30);
+                    vsol = viennacl::linalg::solve(vKe, vRe, my_gmres);
+#ifdef USE_TIME
+                    max_iter_num = std::max(max_iter_num, int(my_gmres.iters()));
+                    max_iter_error = std::max(max_iter_error, my_gmres.error());
+#endif
                 }
                 else {
                     viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
-                    vsol = viennacl::linalg::solve(vKe, vRe,viennacl::linalg::bicgstab_tag(1e-9, 1000, 200), chow_patel_ilu);
+                    viennacl::linalg::bicgstab_tag my_bicgstab(1e-9, 1000, 100);
+                    vsol = viennacl::linalg::solve(vKe, vRe, my_bicgstab, chow_patel_ilu);
+#ifdef USE_TIME
+                    max_iter_num = std::max(max_iter_num, int(my_bicgstab.iters()));
+                    max_iter_error = std::max(max_iter_error, my_bicgstab.error());
+#endif
                 }
 #ifdef USE_TIME
                 auto solver_end = std::chrono::high_resolution_clock::now();
+                std::cout << "process " << this->world_rank << " is assigned to dir_index = " << dir_index << std::endl;
+                std::cout << "    takes " << timer.get() * 1000 << "ms to solve the system" << std::endl;
                 solver_time += std::chrono::duration_cast<std::chrono::microseconds>(solver_end - solver_start);
 #endif
                 auto* sol = new double[N_cell];
                 viennacl::copy(vsol.begin(), vsol.end(), sol);
                 MPI_Barrier(MPI_COMM_WORLD);
+#ifdef USE_TIME
+                timer.start();
+#endif
                 MPI_Allgather(sol,
                               N_cell,
                               MPI_DOUBLE,
@@ -794,6 +814,9 @@ void StaticBTESolver::_iteration(int max_iter) {
                               MPI_DOUBLE,
                               MPI_COMM_WORLD
                               );
+#ifdef USE_TIME
+                std::cout << "process " << this->world_rank << " takes " << timer.get() * 1000 << "ms to gather" << std::endl;
+#endif
                 delete [] sol;
 #else
                 std::vector<double> sol = _solve_matrix((int*)csrRowPtr,
@@ -826,6 +849,8 @@ void StaticBTESolver::_iteration(int max_iter) {
             std::cout << "Time taken by get_Ke: " << 1.0 * get_Ke_time.count() / 1000 << " milliseconds" << std::endl;
             std::cout << "Time taken by get_Re: " << 1.0 * get_Re_time.count() / 1000 << " milliseconds" << std::endl;
             std::cout << "Time taken by iterative solver: " << 1.0 * solver_time.count() / 1000 << " milliseconds" << std::endl;
+            std::cout << "Iterative solver maximum iteration num: " << max_iter_num << std::endl;
+            std::cout << "Iterative solver maximum error: " << max_iter_error << std::endl;
 #endif
 #ifdef USE_GPU
         }
@@ -852,24 +877,24 @@ void StaticBTESolver::_postprocess() {
         delete ee_curr[band_index];
         delete ee_prev[band_index];
     }
-#ifdef USE_GPU
-    if (this->world_rank == 0) {
-#endif
-    std::cout << std::endl;
-    std::ofstream outFile;
-    outFile.open("Tempcell.dat");
-    for (int i = 0; i < N_cell; i++) {
-        outFile << (cell_centers[i]->x) / mesh->L_x << " "
-                << (cell_centers[i]->y) / mesh->L_y << " ";
-        if (mesh->dim == 3) {
-            outFile << (cell_centers[i]->z) / mesh->L_z << " ";
-        }
-        outFile << cell_temperature[i] << std::endl;
-    }
-    outFile.close();
-#ifdef USE_GPU
-    }
-#endif
+//#ifdef USE_GPU
+//    if (this->world_rank == 0) {
+//#endif
+//    std::cout << std::endl;
+//    std::ofstream outFile;
+//    outFile.open("Tempcell.dat");
+//   for (int i = 0; i < N_cell; i++) {
+//      outFile << (cell_centers[i]->x) / mesh->L_x << " "
+//              << (cell_centers[i]->y) / mesh->L_y << " ";
+//      if (mesh->dim == 3) {
+//          outFile << (cell_centers[i]->z) / mesh->L_z << " ";
+//      }
+//      outFile << cell_temperature[i] << std::endl;
+//  }
+//   outFile.close();
+//#ifdef USE_GPU
+//}
+//#endif
 }
 
 #ifdef USE_GPU
@@ -909,6 +934,9 @@ void StaticBTESolver::solve(int max_iter) {
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     std::cout << std::endl << "Time taken by iteration: "
          << duration.count() * 0.001 << " milliseconds" << std::endl;
+#ifdef USE_GPU
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif
 #endif
     _postprocess();
 }
