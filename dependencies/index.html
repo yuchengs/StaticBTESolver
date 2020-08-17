@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <meta name="author" content="Yucheng Shi">
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>Dependencies - StaticBTESolver</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
+
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Dependencies";
+    var mkdocs_page_input_path = "dependencies.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> StaticBTESolver</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                    </li>
+                </ul>
+                <p class="caption"><span class="caption-text">User Guide</span></p>
+                <ul class="current">
+                    <li class="toctree-l1 current"><a class="reference internal current" href="./">Dependencies</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#cpu-version">CPU version</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#petsc">PETSc</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fltk-optional">FLTK (optional)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#opencascade-optional">OpenCASCADE (optional)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#gmsh-optional">gmsh (optional)</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#gpu-version">GPU version</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#cudatoolkit-required">CUDAToolkit (required)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#viennacl-required">viennacl (required)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#openmpi-required">openmpi (required)</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../installation/">Installation</a>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../command-line-tool/">Command Line Tool</a>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../examples/">Examples</a>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../public-api/">Public API</a>
+                    </li>
+                </ul>
+                <p class="caption"><span class="caption-text">About</span></p>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../about/">About</a>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../license/">License</a>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../release-notes/">Release Notes</a>
+                    </li>
+                </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">StaticBTESolver</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+        
+          <li>User Guide &raquo;</li>
+        
+      
+    
+    <li>Dependencies</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="dependencies">Dependencies</h1>
+<p>StaticBTESolver can be compiled to a CPU version, or a GPU-accelerated version if you
+have CUDA support. To use the CPU version, the only requirement is <code>Petsc</code>. To use the
+GPU version, you need at least one CUDA-enabled GPU card and <code>CUDAToolkit</code> installed.
+Detailed dependencies for both versions are summarized below.</p>
+<h2 id="cpu-version">CPU version</h2>
+<h3 id="petsc"><code>PETSc</code></h3>
+<p>Please consult PETSc documentation <a href="https://www.mcs.anl.gov/petsc/documentation/installation.html">here</a>.</p>
+<h3 id="fltk-optional"><code>FLTK</code> (optional)</h3>
+<p>gmsh's GUI uses FLTK. So if you want to visualize the mesh generated, you have to install FLTK first.</p>
+<pre><code>  curl -O https://www.fltk.org/pub/fltk/1.3.5/fltk-1.3.5-source.tar.gz
+  tar zxvf fltk-1.3.5-source.tar.gz
+  cd fltk-1.3.5
+  ./configure
+  make &amp;&amp; sudo make install
+</code></pre>
+
+<h3 id="opencascade-optional"><code>OpenCASCADE</code> (optional)</h3>
+<p>OpenCASCADE is a free CAD kernel. If gmsh's build-in kernel is enough for you, you may skip this dependency. However,
+we may support <code>STEP</code> file format in the future, which will probably use <code>OpenCASCADE</code>.</p>
+<h3 id="gmsh-optional"><code>gmsh</code> (optional)</h3>
+<p>gmsh is a free mesh generator. To install, consult gmsh documentation <a href="https://gmsh.info">here</a>. Since we use gmsh api for C++ internally, you will need to 
+compile gmsh as a shared library.</p>
+<pre><code>  git clone http://gitlab.onelab.info/gmsh/gmsh.git
+  cd gmsh
+  mkdir build
+  cmake -S. -Bbuild -DENABLE_BUILD_DYNAMIC=1
+  cd build
+  make &amp;&amp; sudo make install
+</code></pre>
+
+<h2 id="gpu-version">GPU version</h2>
+<h3 id="cudatoolkit-required"><code>CUDAToolkit</code> (required)</h3>
+<p>Please consult documentation <a href="https://developer.nvidia.com/cuda-toolkit">here</a>. We recommend
+you to use the latest version.</p>
+<h3 id="viennacl-required"><code>viennacl</code> (required)</h3>
+<p>ViennaCL is a GPU-accelerated linear algebra library. It is a header library, so you
+do not need to worry about how to install it.</p>
+<h3 id="openmpi-required"><code>openmpi</code> (required)</h3>
+<p>You may also use <code>mpich</code>.</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../installation/" class="btn btn-neutral float-right" title="Installation">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href=".." class="btn btn-neutral" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href=".." style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../installation/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>

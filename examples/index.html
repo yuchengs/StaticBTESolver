@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <meta name="author" content="Yucheng Shi">
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>Examples - StaticBTESolver</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
+
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Examples";
+    var mkdocs_page_input_path = "examples.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> StaticBTESolver</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                    </li>
+                </ul>
+                <p class="caption"><span class="caption-text">User Guide</span></p>
+                <ul class="current">
+                    <li class="toctree-l1"><a class="reference internal" href="../dependencies/">Dependencies</a>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../installation/">Installation</a>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../command-line-tool/">Command Line Tool</a>
+                    </li>
+                    <li class="toctree-l1 current"><a class="reference internal current" href="./">Examples</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#examples-using-btecmd">Examples using BTEcmd</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#2dm1dg">2DM1DG</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3dm1dg">3DM1DG</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#2dm2dg">2DM2DG</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3dm2dg">3DM2DG</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3dm3dg">3DM3DG</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#2dm1dg_1">2DM1DG</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3dm1dg_1">3DM1DG</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#2dm2dg_1">2DM2DG</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3dm2dg_1">3DM2DG</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3dm3dg_1">3DM3DG</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#examples-using-the-api">Examples using the API</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#on-sjtu-pi-cluster">On SJTU PI cluster</a>
+    </li>
+    </ul>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../public-api/">Public API</a>
+                    </li>
+                </ul>
+                <p class="caption"><span class="caption-text">About</span></p>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../about/">About</a>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../license/">License</a>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../release-notes/">Release Notes</a>
+                    </li>
+                </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">StaticBTESolver</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+        
+          <li>User Guide &raquo;</li>
+        
+      
+    
+    <li>Examples</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="examples">Examples</h1>
+<h2 id="examples-using-btecmd">Examples using <code>BTEcmd</code></h2>
+<h3 id="2dm1dg"><code>2DM1DG</code></h3>
+<p>Make sure you use files in <code>tests/2DM1DG</code>,</p>
+<pre><code>./BTEcmd -x 1e-8 -t 8 -p 1 \
+   -d 2 -I 1000 \
+   -g 100 \
+   -b path/to/tests/2DM1DG/inputbc.dat \
+   -m path/to/tests/2DM1DG/band.dat     
+</code></pre>
+
+<h3 id="3dm1dg"><code>3DM1DG</code></h3>
+<p>Make sure you use files in <code>tests/3DM1DG</code>,</p>
+<pre><code>./BTEcmd -x 1e-8 -t 8 -p 1 \
+   -d 3 -I 1000 \
+   -g 100 \
+   -b path/to/tests/3DM1DG/inputbc.dat \
+   -m path/to/tests/3DM1DG/band.dat     
+</code></pre>
+
+<h3 id="2dm2dg"><code>2DM2DG</code></h3>
+<p>Make sure you use files in <code>tests/2DM2DG</code>,</p>
+<pre><code>./BTEcmd -x 1e-4 -y 1e-4 -z 0 -d 2
+   -t 8 -p 8 -I 1000000 
+   -b path/to/tests/2DM2DG/inputbc.dat 
+   -g path/to/tests/2DM2DG/mesh.mphtxt 
+   -m path/to/tests/2DM2DG/band.dat
+</code></pre>
+
+<p>Note this configuration is slow, maybe try <code>x</code>, <code>y</code> with 1e-8 for faster convergence.</p>
+<h3 id="3dm2dg"><code>3DM2DG</code></h3>
+<p>Make sure you use files in <code>tests/3DM2DG</code>,</p>
+<pre><code>./BTEcmd -x 1e-8 -y 1e-8 -z 0 -t 4 -p 4 \
+   -d 3 -I 1000 \
+   -g path/to/tests/3DM2DG/mesh.mphtxt \
+   -b path/to/tests/3DM2DG/inputbc.dat \
+   -m path/to/tests/3DM2DG/band.dat 
+</code></pre>
+
+<h3 id="3dm3dg"><code>3DM3DG</code></h3>
+<p>Make sure you use files in <code>tests/3DM3DG</code>,</p>
+<pre><code>./BTEcmd -x 1e-8 -y 1e-8 -z 1e-8 -t 4 -p 4 \
+   -d 3 -I 1000 \
+   -g path/to/tests/3DM3DG/mesh.mphtxt \
+   -b path/to/tests/3DM3DG/inputbc.dat \
+   -m path/to/tests/3DM3DG/band.dat 
+</code></pre>
+
+<h3 id="2dm1dg_1"><code>2DM1DG</code></h3>
+<p>Make sure you use files in <code>tests/2DM1DG</code>,</p>
+<pre><code>./BTEcmd -x 1e-8 -t 8 -p 1 \
+    -d 2 -I 1000 \
+    -g 100 \
+    -b path/to/tests/2DM1DG/inputbc.dat \
+    -m path/to/tests/2DM1DG/band.dat     
+</code></pre>
+
+<h3 id="3dm1dg_1"><code>3DM1DG</code></h3>
+<p>Make sure you use files in <code>tests/3DM1DG</code>,</p>
+<pre><code>./BTEcmd -x 1e-8 -t 8 -p 1 \
+    -d 3 -I 1000 \
+    -g 100 \
+    -b path/to/tests/3DM1DG/inputbc.dat \
+    -m path/to/tests/3DM1DG/band.dat     
+</code></pre>
+
+<h3 id="2dm2dg_1"><code>2DM2DG</code></h3>
+<p>Make sure you use files in <code>tests/2DM2DG</code>,</p>
+<pre><code>./BTEcmd -x 1e-4 -y 1e-4 -z 0 -d 2
+    -t 8 -p 8 -I 1000000 
+    -b path/to/tests/2DM2DG/inputbc.dat 
+    -g path/to/tests/2DM2DG/mesh.mphtxt 
+    -m path/to/tests/2DM2DG/band.dat
+</code></pre>
+
+<p>Note this configuration is slow, maybe try <code>x</code>, <code>y</code> with 1e-8 for faster convergence.</p>
+<h3 id="3dm2dg_1"><code>3DM2DG</code></h3>
+<p>Make sure you use files in <code>tests/3DM2DG</code>,</p>
+<pre><code>./BTEcmd -x 1e-8 -y 1e-8 -z 0 -t 4 -p 4 \
+    -d 3 -I 1000 \
+    -g path/to/tests/3DM2DG/mesh.mphtxt \
+    -b path/to/tests/3DM2DG/inputbc.dat \
+    -m path/to/tests/3DM2DG/band.dat 
+</code></pre>
+
+<h3 id="3dm3dg_1"><code>3DM3DG</code></h3>
+<p>Make sure you use files in <code>tests/3DM3DG</code>,</p>
+<pre><code>./BTEcmd -x 1e-8 -y 1e-8 -z 1e-8 -t 4 -p 4 \
+    -d 3 -I 1000 \
+    -g path/to/tests/3DM3DG/mesh.mphtxt \
+    -b path/to/tests/3DM3DG/inputbc.dat \
+    -m path/to/tests/3DM3DG/band.dat 
+</code></pre>
+
+<h2 id="examples-using-the-api">Examples using the API</h2>
+<pre><code class="cpp">#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &quot;StaticBTESolver/StaticBTESolver.h&quot;
+
+using namespace std;
+
+int main() {
+    double L_x, L_y, L_z, Tref, errnum, qflux;
+    int maxIter;
+    bool backup;
+    int ntheta, nphi;
+
+    ifstream infile(&quot;inputdata3D.dat&quot;);
+    string line;
+    char newline;
+    getline(infile, line);
+    infile &gt;&gt; L_x &gt;&gt; newline;
+    getline(infile, line);
+    infile &gt;&gt; L_y &gt;&gt; newline;
+    getline(infile, line);
+    infile &gt;&gt; L_z &gt;&gt; newline;
+    getline(infile, line);
+    infile &gt;&gt; Tref &gt;&gt; newline;
+    getline(infile, line);
+    infile &gt;&gt; errnum &gt;&gt; newline;
+    getline(infile, line);
+    infile &gt;&gt; ntheta &gt;&gt; newline;
+    getline(infile, line);
+    infile &gt;&gt; nphi &gt;&gt; newline;
+    getline(infile, line);
+    infile &gt;&gt; maxIter &gt;&gt; newline;
+    getline(infile, line);
+    infile &gt;&gt; backup &gt;&gt; newline;
+    infile.close();
+
+    ifstream inFile1(&quot;Input-dispersion-relation-fp.dat&quot;);
+    auto bands = new BTEBand(inFile1);
+    ifstream inFile2(&quot;inputbc3D.dat&quot;);
+    auto bcs = new BTEBoundaryCondition(inFile2);
+    ifstream inFile3(&quot;mesh3D.mphtxt&quot;);
+    auto mesh3D = new  BTEMesh(inFile3, L_x, L_y, L_z);
+
+    StaticBTESolver solver(mesh3D, bcs, bands);
+    solver.setParam(3, ntheta, nphi, Tref);
+    solver.solve(maxIter);
+
+    return 0;
+}
+</code></pre>
+
+<h2 id="on-sjtu-pi-cluster">On SJTU PI cluster</h2>
+<p>The following script can be used to submit a job using two cores, each for
+one GPU card.</p>
+<pre><code class="bash">#!/bin/bash
+
+#SBATCH --job-name=name
+#SBATCH --partition=dgx2
+#SBATCH --output=%j.out
+#SBATCH --error=%j.err
+#SBATCH --time=00-00:05:00
+#SBATCH -n 2
+#SBATCH --gres=gpu:2
+#SBATCH --ntasks-per-node 2
+#SBATCH --mail-type=end
+#SBATCH --mail-user=youremail
+
+module purge
+module load gcc/8.3.0-gcc-4.8.5
+module load openmpi/3.1.5-gcc-8.3.0
+module load cuda/10.1.243-gcc-8.3.0
+
+srun --mpi=pmi2 gpu-build/src/BTEcmd -x 1e-8 -y 1e-8 \
+           -t 8 -p 8 -d 2 -I 1000 \
+           -g /path/to/2D_78000.mphtxt \
+           -b /path/to/inputbc_2D.dat \
+           -m /path/to/Input-dispersion-relation-fp.dat
+</code></pre>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../public-api/" class="btn btn-neutral float-right" title="Public API">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../command-line-tool/" class="btn btn-neutral" title="Command Line Tool"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../command-line-tool/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../public-api/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>
