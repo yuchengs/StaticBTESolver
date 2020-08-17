@@ -4,7 +4,6 @@ site_author: Yucheng Shi
 # Configuration
 theme:
   name: readthedocs
-  language: en
 
 nav:
   - Home: index.md

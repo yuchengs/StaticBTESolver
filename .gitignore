@@ -8,3 +8,5 @@ Tempcell.dat
 *.dat
 *.mphtxt
 .DS_Store
+!/tests/2D_66W.mphtxt
+site/
