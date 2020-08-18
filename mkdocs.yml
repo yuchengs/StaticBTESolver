@@ -1,6 +1,9 @@
 site_name: StaticBTESolver
 site_author: Yucheng Shi
 
+repo_name: yuchengs/StaticBTESolver
+repo_url: https://github.com/yuchengs/StaticBTESolver
+
 # Configuration
 theme:
   name: readthedocs
@@ -12,7 +15,7 @@ nav:
     - 'Installation': installation.md
     - 'Command Line Tool': command-line-tool.md
     - 'Examples': examples.md
-    - 'Public API': public-api.md
+    - 'Public API': html/index.html
   - About:
     - 'About': about.md
     - 'License': license.md

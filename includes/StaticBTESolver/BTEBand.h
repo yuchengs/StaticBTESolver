@@ -19,14 +19,36 @@ class BTEBand {
     BandList bands;
 public:
     BTEBand() = default;
+
+    /**
+     * Constructor of BTEBand
+     * @param inFile inFile should be an opened file stream for a file specifying band information.
+     *               The file contains one line for each band. Each line contains four numbers,
+     *               "GROUP_VELOCITY RELAXATION_TIME Ctot Lr"
+     */
     explicit BTEBand(std::ifstream& inFile);
     BTEBand(const BTEBand& other) = default;
     BTEBand& operator=(const BTEBand& other) = default;
 
     using iterator = BandList::iterator;
     using const_iterator = BandList::const_iterator;
+
+    /**
+     *
+     * @return the iterator of the first band
+     */
     const_iterator begin() const;
+
+    /**
+     *
+     * @return the iterator of the last band
+     */
     const_iterator end() const;
+
+    /**
+     *
+     * @return the number of bands
+     */
     std::size_t size();
 
     const Band& operator[](std::size_t i) const;

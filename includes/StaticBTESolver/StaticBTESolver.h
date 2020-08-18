@@ -72,8 +72,28 @@ class StaticBTESolver {
 #endif
 
 public:
+    /**
+     * The constructor of StaticBTESolver
+     * @param mesh      a pointer to BTEMesh
+     * @param bcs       a pointer to BTEBoundaryCondition
+     * @param bands     a pointer to BTEBand
+     *
+     * All three pointer should not be null.
+     */
     StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBand* bands);
+    /**
+     * Set solver hyper parameter
+     * @param DM            material dimension
+     * @param num_theta     CADOM parameter
+     * @param num_phi       CADOM parameter
+     * @param T_ref         reference temperature
+     */
     void setParam(int DM, int num_theta, int num_phi, double T_ref);
+    /**
+     * After setting the solver context by StaticBTESolver::setParam,
+     * this method can be called to invoke the solver
+     * @param max_iter      maximum number of iteration allowed before exit
+     */
     void solve(int max_iter);
 };
 

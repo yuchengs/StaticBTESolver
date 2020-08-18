@@ -25,10 +25,6 @@ std::shared_ptr<staticbtesolver::Point> staticbtesolver::cross_prod(const std::s
     return ptr;
 }
 
-double staticbtesolver::getLength(const staticbtesolver::Point& p1, const staticbtesolver::Point& p2) {
-    return p1.distance(p2);
-}
-
 double staticbtesolver::getLength(const std::shared_ptr<staticbtesolver::Point>& p1, const std::shared_ptr<staticbtesolver::Point>& p2) {
     double x = p1->x - p2->x;
     double y = p1->y - p2->y;
