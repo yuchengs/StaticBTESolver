@@ -65,7 +65,7 @@ class StaticBTESolver {
     void _postprocess();
 
 #ifndef USE_GPU
-    std::vector<double> _solve_matrix(int* csrRowPtr, int* csrColInd, double* csrVal, std::vector<double>& Re);
+    double* _solve_matrix(int* csrRowPtr, int* csrColInd, double* csrVal, std::vector<double>& Re);
 #else
     size_t print_host_mem();
     size_t print_device_mem();

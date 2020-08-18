@@ -36,11 +36,12 @@ StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBa
     this->mesh = mesh;
     this->bcs = bcs;
     this->bands = bands;
-
-#ifdef USE_GPU
+#ifndef USE_GPU
+    PetscInitialize(nullptr, nullptr, (char*)nullptr, nullptr);
+#endif
     MPI_Comm_size(MPI_COMM_WORLD, &this->num_proc);
     MPI_Comm_rank(MPI_COMM_WORLD, &this->world_rank);
-
+#ifdef USE_GPU
     cudaGetDeviceCount(&this->device_count);
     this->device_id = this->world_rank % this->device_count;
     cudaSetDevice(this->device_id);
@@ -49,8 +50,6 @@ StaticBTESolver::StaticBTESolver(BTEMesh* mesh, BTEBoundaryCondition* bcs, BTEBa
     }
     MPI_Barrier(MPI_COMM_WORLD);
     std::cout << "Bind solver rank " << this->world_rank << " to device " << this->device_id << "." << std::endl;
-#else
-    PetscInitialize(nullptr, nullptr, (char*)nullptr, nullptr);
 #endif
 }
 
@@ -279,7 +278,7 @@ std::vector<double> StaticBTESolver::_get_Re(int band_index, int dir_index) {
     return Re;
 }
 #ifndef USE_GPU
-std::vector<double> StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, double* Val, std::vector<double>& Re) {
+double* StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, double* Val, std::vector<double>& Re) {
     Mat            A;
     Vec            b, x;
     KSP            ksp;
@@ -308,7 +307,7 @@ std::vector<double> StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, dou
 
     KSPSolve(ksp, b, x);
 
-    std::vector<double> res(N_cell, 0);
+    auto* res = new double[N_cell];
     VecGetValues(x, N_cell, indices, &res[0]);
     delete [] indices;
     VecDestroy(&x);
@@ -374,14 +373,10 @@ void StaticBTESolver::_get_heat_flux() {
             }
             bc_heat_flux[bc_index] += bc_band_heat_flux[bc_index][band_index];
         }
-#ifdef USE_GPU
         if (this->world_rank == 0) {
-#endif
             std::cout << "heat flux of Boundary Condition #" << -1 - bcs->boundaryConditions[bc_index].index << ": "
                       << bc_heat_flux[bc_index] << std::endl;
-#ifdef USE_GPU
         }
-#endif
     }
 }
 
@@ -704,17 +699,15 @@ void StaticBTESolver::_preprocess() {
 }
 
 void StaticBTESolver::_iteration(int max_iter) {
-#ifdef USE_GPU
     if (this->world_rank == 0) {
-#endif
         std::cout << "N_cell: " << N_cell << std::endl
                   << "N_dir: " << N_dir << std::endl
                   << "N_band: " << N_band << std::endl
                   << "num_theta: " << num_theta << std::endl
                   << "num_phi: " << num_phi << std::endl << std::endl;
-#ifdef USE_GPU
     }
 
+#ifdef USE_GPU
     viennacl::linalg::chow_patel_tag chow_patel_ilu_config;
     chow_patel_ilu_config.sweeps(3);       // three nonlinear sweeps
     chow_patel_ilu_config.jacobi_iters(2); // two Jacobi iterations per triangular 'solve' Rx=r
@@ -742,11 +735,8 @@ void StaticBTESolver::_iteration(int max_iter) {
         auto start = std::chrono::high_resolution_clock::now();
 #endif
         for (int band_index = 0; band_index < N_band; band_index++) {
-#ifdef USE_GPU
             for (int dir_index = this->world_rank; dir_index < N_dir; dir_index += this->num_proc) {
-#else
-            for (int dir_index = 0; dir_index < N_dir; dir_index++) {
-#endif
+
                 auto csrRowPtr = new unsigned int[N_cell + 1];
                 auto csrColInd = new unsigned int[N_face * N_cell + 1];
                 auto csrVal = new double[N_face * N_cell + 1];
@@ -769,13 +759,12 @@ void StaticBTESolver::_iteration(int max_iter) {
                 vKe.set(csrRowPtr, csrColInd, csrVal, N_cell, N_cell, nnz);
                 viennacl::vector<double> vRe(Re.size());
                 viennacl::copy(Re, vRe);
-
                 viennacl::vector<double> vsol;
+#endif
 #ifdef USE_TIME
                 auto solver_start = std::chrono::high_resolution_clock::now();
-                viennacl::tools::timer timer;
-                timer.start();
 #endif
+#ifdef USE_GPU
                 if (mesh->dim == 1) {
                     viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
                     viennacl::linalg::gmres_tag my_gmres(1e-9, N_cell, 30);
@@ -794,17 +783,19 @@ void StaticBTESolver::_iteration(int max_iter) {
                     max_iter_error = std::max(max_iter_error, my_bicgstab.error());
 #endif
                 }
-#ifdef USE_TIME
-                auto solver_end = std::chrono::high_resolution_clock::now();
-                std::cout << "process " << this->world_rank << " is assigned to dir_index = " << dir_index << std::endl;
-                std::cout << "    takes " << timer.get() * 1000 << "ms to solve the system" << std::endl;
-                solver_time += std::chrono::duration_cast<std::chrono::microseconds>(solver_end - solver_start);
-#endif
                 auto* sol = new double[N_cell];
                 viennacl::copy(vsol.begin(), vsol.end(), sol);
                 MPI_Barrier(MPI_COMM_WORLD);
+#else
+                double* sol = _solve_matrix((int*)csrRowPtr, (int*)csrColInd, csrVal, Re);
+                MPI_Barrier(MPI_COMM_WORLD);
+#endif
 #ifdef USE_TIME
-                timer.start();
+                auto solver_end = std::chrono::high_resolution_clock::now();
+                std::cout << "process " << this->world_rank << " is assigned to dir_index = " << dir_index << std::endl;
+                std::cout << "    takes " << std::chrono::duration_cast<std::chrono::milliseconds>(solver_end - solver_start).count() << "ms to solve the system" << std::endl;
+                solver_time += std::chrono::duration_cast<std::chrono::microseconds>(solver_end - solver_start);
+                auto gather_start = std::chrono::high_resolution_clock::now();
 #endif
                 MPI_Allgather(sol,
                               N_cell,
@@ -815,17 +806,10 @@ void StaticBTESolver::_iteration(int max_iter) {
                               MPI_COMM_WORLD
                               );
 #ifdef USE_TIME
-                std::cout << "process " << this->world_rank << " takes " << timer.get() * 1000 << "ms to gather" << std::endl;
+                auto gather_end = std::chrono::high_resolution_clock::now();
+                std::cout << "process " << this->world_rank << " takes " << std::chrono::duration_cast<std::chrono::milliseconds>(gather_end - gather_start).count() << "ms to gather" << std::endl;
 #endif
                 delete [] sol;
-#else
-                std::vector<double> sol = _solve_matrix((int*)csrRowPtr,
-                                                        (int*)csrColInd,
-                                                        csrVal, Re);
-                for (int cell_index = 0; cell_index < N_cell; cell_index++) {
-                    *ee_curr[band_index]->get_ptr(dir_index, cell_index) = sol[cell_index];
-                }
-#endif
                 delete [] csrRowPtr;
                 delete [] csrColInd;
                 delete [] csrVal;
@@ -839,9 +823,7 @@ void StaticBTESolver::_iteration(int max_iter) {
         auto time_end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_start);
 #endif
-#ifdef USE_GPU
         if (this->world_rank == 0) {
-#endif
             std::cout << "----------------------------------------------------------------------------------" << std::endl;
             std::cout << "Iteration #" << iter_index << "\t Margin per band per cell: " << margin << std::endl;
 #ifdef USE_TIME
@@ -852,27 +834,20 @@ void StaticBTESolver::_iteration(int max_iter) {
             std::cout << "Iterative solver maximum iteration num: " << max_iter_num << std::endl;
             std::cout << "Iterative solver maximum error: " << max_iter_error << std::endl;
 #endif
-#ifdef USE_GPU
         }
-#endif
         if (margin <= 0.0001) {
-#ifdef USE_GPU
             if (this->world_rank == 0) {
-#endif
-            std::cout << std::endl;
-#ifdef USE_GPU
+                std::cout << std::endl;
             }
-#endif
             break;
         }
     }
 }
 
 void StaticBTESolver::_postprocess() {
-#ifndef USE_GPU
-    PetscFinalize();
-#endif
+    MPI_Barrier(MPI_COMM_WORLD);
     _get_heat_flux();
+    MPI_Barrier(MPI_COMM_WORLD);
     for (int band_index = 0; band_index < N_band; band_index++) {
         delete ee_curr[band_index];
         delete ee_prev[band_index];
@@ -895,6 +870,9 @@ void StaticBTESolver::_postprocess() {
 //#ifdef USE_GPU
 //}
 //#endif
+#ifndef USE_GPU
+    PetscFinalize();
+#endif
 }
 
 #ifdef USE_GPU
@@ -932,11 +910,10 @@ void StaticBTESolver::solve(int max_iter) {
 #ifdef USE_TIME
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << std::endl << "Time taken by iteration: "
-         << duration.count() * 0.001 << " milliseconds" << std::endl;
-#ifdef USE_GPU
     MPI_Barrier(MPI_COMM_WORLD);
-#endif
+    std::cout << "Time taken by iteration: "
+         << duration.count() * 0.001 << " milliseconds" << std::endl;
+    MPI_Barrier(MPI_COMM_WORLD);
 #endif
     _postprocess();
 }

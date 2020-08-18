@@ -2,8 +2,8 @@ if (USE_GMSH)
     find_package(Gmsh REQUIRED)
 endif()
 
+find_package(MPI REQUIRED)
 if (USE_GPU)
-    find_package(MPI REQUIRED)
     find_package(CUDAToolkit REQUIRED)
     enable_language(CUDA)
     set_source_files_properties(StaticBTESolver.cpp PROPERTIES LANGUAGE CUDA)
@@ -73,10 +73,10 @@ else()
     endif()
     if (USE_GMSH)
         target_link_libraries(StaticBTESolver PUBLIC BTEBand BTEBoundaryCondition BTEMesh BTEGeometry
-                                          PRIVATE "${PETSC_LIBRARIES}")
+                                          PRIVATE "${PETSC_LIBRARIES}" MPI::MPI_CXX)
     else()
         target_link_libraries(StaticBTESolver PUBLIC BTEBand BTEBoundaryCondition BTEMesh
-                PRIVATE "${PETSC_LIBRARIES}")
+                PRIVATE "${PETSC_LIBRARIES}" MPI::MPI_CXX)
     endif()
 endif()
 
