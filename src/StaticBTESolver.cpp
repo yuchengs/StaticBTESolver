@@ -852,9 +852,7 @@ void StaticBTESolver::_postprocess() {
         delete ee_curr[band_index];
         delete ee_prev[band_index];
     }
-//#ifdef USE_GPU
-//    if (this->world_rank == 0) {
-//#endif
+//if (this->world_rank == 0) {
 //    std::cout << std::endl;
 //    std::ofstream outFile;
 //    outFile.open("Tempcell.dat");
@@ -867,9 +865,7 @@ void StaticBTESolver::_postprocess() {
 //      outFile << cell_temperature[i] << std::endl;
 //  }
 //   outFile.close();
-//#ifdef USE_GPU
 //}
-//#endif
 #ifndef USE_GPU
     PetscFinalize();
 #endif

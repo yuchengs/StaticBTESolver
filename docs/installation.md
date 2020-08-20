@@ -1,6 +1,6 @@
 # Installation
 
-The library use C++17 features, so you should use a compiler supporting that.
+The library uses C++17 features, so you should use a compiler supporting that.
 Also, the minimum required version for `cmake` is 3.17.
 
 Clone this repository:

@@ -123,6 +123,22 @@ Make sure you use files in `tests/3DM3DG`,
     -b path/to/tests/3DM3DG/inputbc.dat \
     -m path/to/tests/3DM3DG/band.dat 
 ```
+
+### Multi-Process (CPU)
+
+You can also call the CPU version of the solver using multiple MPI processes.
+For example, to run 3DM3DG test case:
+
+```
+mpirun -np 2 ./BTEcmd -x 1e-8 -y 1e-8 -z 1e-8 -t 4 -p 4 \
+    -d 3 -I 1000 \
+    -g path/to/tests/3DM3DG/mesh.mphtxt \
+    -b path/to/tests/3DM3DG/inputbc.dat \
+    -m path/to/tests/3DM3DG/band.dat 
+```
+
+A restriction for now is that the number of processes used should be
+a factor of the number of total directions.
   
 ## Examples using the API
   

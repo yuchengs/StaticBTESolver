@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.12)
-project(StaticBTESolver VERSION 1.0 LANGUAGES CXX C Fortran)
+cmake_minimum_required(VERSION 3.17)
+project(StaticBTESolver VERSION 0.1 LANGUAGES CXX C Fortran)
 
 # for cpu profiling
 # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
