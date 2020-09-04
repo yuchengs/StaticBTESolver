@@ -5,7 +5,7 @@
 #SBATCH --output=%j.out
 #SBATCH --error=%j.err
 #SBATCH --time=00-00:30:00
-#SBATCH -n 1
+#SBATCH -N 1
 #SBATCH --ntasks-per-node 1
 #SBATCH --mail-type=end
 #SBATCH --mail-user=youremail
