@@ -8,5 +8,11 @@ Tempcell.dat
 *.dat
 *.mphtxt
 .DS_Store
-!/tests/2D_66W.mphtxt
+!tests/2D_66W.mphtxt
 site/
+latex/
+docs/html/
+*.bak
+gpu-build/
+cpu-build
+

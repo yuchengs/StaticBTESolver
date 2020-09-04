@@ -23,7 +23,6 @@ BTEBoundaryCondition::BTEBoundaryCondition(std::ifstream& inFile) {
     }
 }
 
-
 BTEBoundaryCondition::const_iterator BTEBoundaryCondition::begin() const {
     return boundaryConditions.begin();
 }

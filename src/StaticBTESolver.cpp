@@ -713,7 +713,10 @@ void StaticBTESolver::_iteration(int max_iter) {
     chow_patel_ilu_config.jacobi_iters(2); // two Jacobi iterations per triangular 'solve' Rx=r
 #endif
 
-    ee_curr.resize(N_band, new staticbtesolver::ContinuousArray(N_dir, N_cell));
+    ee_curr.resize(N_band, nullptr);
+    for (int band_index = 0; band_index < N_band; band_index++) {
+        ee_curr[band_index] = new staticbtesolver::ContinuousArray(N_dir, N_cell);
+    }
     ee_prev.resize(N_band, nullptr);
     for (int iter_index = 0; iter_index < max_iter; iter_index++) {
 #ifdef USE_TIME
@@ -792,8 +795,8 @@ void StaticBTESolver::_iteration(int max_iter) {
 #endif
 #ifdef USE_TIME
                 auto solver_end = std::chrono::high_resolution_clock::now();
-                std::cout << "process " << this->world_rank << " is assigned to dir_index = " << dir_index << std::endl;
-                std::cout << "    takes " << std::chrono::duration_cast<std::chrono::milliseconds>(solver_end - solver_start).count() << "ms to solve the system" << std::endl;
+                std::cout << "[" << band_index << "] Process " << this->world_rank << " is assigned to dir_index = " << dir_index << std::endl;
+                std::cout << "     takes " << std::chrono::duration_cast<std::chrono::milliseconds>(solver_end - solver_start).count() << "ms to solve the system" << std::endl;
                 solver_time += std::chrono::duration_cast<std::chrono::microseconds>(solver_end - solver_start);
                 auto gather_start = std::chrono::high_resolution_clock::now();
 #endif
@@ -807,7 +810,7 @@ void StaticBTESolver::_iteration(int max_iter) {
                               );
 #ifdef USE_TIME
                 auto gather_end = std::chrono::high_resolution_clock::now();
-                std::cout << "process " << this->world_rank << " takes " << std::chrono::duration_cast<std::chrono::milliseconds>(gather_end - gather_start).count() << "ms to gather" << std::endl;
+                std::cout << "[" << band_index << "] Process " << this->world_rank << " takes " << std::chrono::duration_cast<std::chrono::milliseconds>(gather_end - gather_start).count() << "ms to gather" << std::endl;
 #endif
                 delete [] sol;
                 delete [] csrRowPtr;
