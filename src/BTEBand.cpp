@@ -12,7 +12,7 @@ BTEBand::BTEBand(std::ifstream& inFile) {
     }
     std::string line;
     while (getline(inFile, line)) {
-        if (line == "\r") {
+        if (line.length() <= 1) {
             break;
         }
         std::stringstream ss(line);
