@@ -191,7 +191,7 @@ std::vector<double> StaticBTESolver::_get_Re(int band_index, int dir_index) {
                         double einsum = 0;
                         double temp = 0;
                         for (int dir_index_inner = 0; dir_index_inner < N_dir; dir_index_inner++) {
-                            if (dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]) > 0) {
+                            if (dot_prod(direction_vectors[dir_index_inner], cell_face_normal[cell_index][face_index]) > 0) {
                                 if (mesh->dim == 3) {
                                     einsum += ee_prev[band_index]->get(dir_index, cell_index)
                                               * dot_prod(S[dir_index_inner], cell_face_normal[cell_index][face_index])
@@ -201,6 +201,7 @@ std::vector<double> StaticBTESolver::_get_Re(int band_index, int dir_index) {
                                 } else if (mesh->dim == 2) {
                                     einsum += ee_prev[band_index]->get(dir_index, cell_index)
                                               * dot_prod(S[dir_index_inner], cell_face_normal[cell_index][face_index]);
+                                    temp += dot_prod(S[dir_index_inner], cell_face_normal[cell_index][face_index]);
                                 } else {
                                     einsum += ee_prev[band_index]->get(dir_index, cell_index)
                                               * dot_prod(direction_vectors[dir_index_inner], cell_face_normal[cell_index][face_index])
@@ -208,7 +209,7 @@ std::vector<double> StaticBTESolver::_get_Re(int band_index, int dir_index) {
                                 }
                             }
                         }
-                        if (mesh->dim == 3) einsum = einsum / temp;
+                        if (mesh->dim != 1) einsum = einsum / temp;
                         else einsum = einsum / PI;
                         Re[cell_index] -= einsum * a_f_total;
                     } else if (bc.type == 31) {
