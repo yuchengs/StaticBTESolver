@@ -329,7 +329,7 @@ double StaticBTESolver::_get_margin() {
             }
         }
     }
-    return (margin / N_band / mesh->meshPts.size());
+    return (margin / N_band / N_cell);
 }
 
 void StaticBTESolver::_get_heat_flux() {
@@ -829,7 +829,7 @@ void StaticBTESolver::_iteration(int max_iter) {
 #endif
         if (this->world_rank == 0) {
             std::cout << "----------------------------------------------------------------------------------" << std::endl;
-            std::cout << "Iteration #" << iter_index << "\t Margin per band per node: " << margin << std::endl;
+            std::cout << "Iteration #" << iter_index << "\t Margin per band per cell: " << margin << std::endl;
 #ifdef USE_TIME
             std::cout << "Time taken by inner loop: " << 1.0 * duration.count() / 1000 << " milliseconds" << std::endl;
             std::cout << "Time taken by get_Ke: " << 1.0 * get_Ke_time.count() / 1000 << " milliseconds" << std::endl;
