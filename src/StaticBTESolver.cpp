@@ -28,6 +28,7 @@
 #include "viennacl/linalg/cg.hpp"
 #include "viennacl/linalg/gmres.hpp"
 #include "viennacl/tools/timer.hpp"
+#include <fstream>
 #else
 #include <petscksp.h>
 #endif
@@ -759,6 +760,31 @@ void StaticBTESolver::_iteration(int max_iter) {
 #endif
 #ifdef USE_GPU
                 unsigned int nnz = csrRowPtr[N_cell];
+
+//                std::ofstream outfile;
+//                outfile.open("csr.dat", std::ios::out | std::ios::trunc);
+//                for (int i = 0; i < N_cell + 1; i++) {
+//                    outfile << csrRowPtr[i] << " ";
+//                }
+//                outfile << std::endl;
+//                for (int i = 0; i < N_face * N_cell + 1; i++) {
+//                    outfile << csrColInd[i] << " ";
+//                }
+//                outfile << std::endl;
+//                for (int i = 0; i < N_face * N_cell + 1; i++) {
+//                    outfile << csrVal[i] << " ";
+//                }
+//                outfile << std::endl;
+//                outfile.close();
+//
+//                std::ofstream ofile;
+//                ofile.open("re.dat", std::ios::out | std::ios::trunc);
+//                for (int i = 0; i < N_cell; i++) {
+//                    ofile << Re[i] << " ";
+//                }
+//                ofile.close();
+//
+//                exit(0);
                 viennacl::compressed_matrix<double> vKe;
                 vKe.set(csrRowPtr, csrColInd, csrVal, N_cell, N_cell, nnz);
                 viennacl::vector<double> vRe(Re.size());
@@ -771,7 +797,7 @@ void StaticBTESolver::_iteration(int max_iter) {
 #ifdef USE_GPU
                 if (mesh->dim == 1) {
                     viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
-                    viennacl::linalg::gmres_tag my_gmres(1e-9, N_cell, 30);
+                    viennacl::linalg::gmres_tag my_gmres(1e-9, 1000, 30);
                     vsol = viennacl::linalg::solve(vKe, vRe, my_gmres);
 #ifdef USE_TIME
                     max_iter_num = std::max(max_iter_num, int(my_gmres.iters()));
@@ -796,8 +822,8 @@ void StaticBTESolver::_iteration(int max_iter) {
 #endif
 #ifdef USE_TIME
                 auto solver_end = std::chrono::high_resolution_clock::now();
-                std::cout << "[" << band_index << "] Process " << this->world_rank << " is assigned to dir_index = " << dir_index << std::endl;
-                std::cout << "     takes " << std::chrono::duration_cast<std::chrono::milliseconds>(solver_end - solver_start).count() << "ms to solve the system" << std::endl;
+//                std::cout << "[" << band_index << "] Process " << this->world_rank << " is assigned to dir_index = " << dir_index << std::endl;
+//                std::cout << "     takes " << std::chrono::duration_cast<std::chrono::milliseconds>(solver_end - solver_start).count() << "ms to solve the system" << std::endl;
                 solver_time += std::chrono::duration_cast<std::chrono::microseconds>(solver_end - solver_start);
                 auto gather_start = std::chrono::high_resolution_clock::now();
 #endif
@@ -811,7 +837,7 @@ void StaticBTESolver::_iteration(int max_iter) {
                               );
 #ifdef USE_TIME
                 auto gather_end = std::chrono::high_resolution_clock::now();
-                std::cout << "[" << band_index << "] Process " << this->world_rank << " takes " << std::chrono::duration_cast<std::chrono::milliseconds>(gather_end - gather_start).count() << "ms to gather" << std::endl;
+//                std::cout << "[" << band_index << "] Process " << this->world_rank << " takes " << std::chrono::duration_cast<std::chrono::milliseconds>(gather_end - gather_start).count() << "ms to gather" << std::endl;
 #endif
                 delete [] sol;
                 delete [] csrRowPtr;

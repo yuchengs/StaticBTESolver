@@ -21,5 +21,3 @@ cmp --silent tests/2DM2DG/2DM2DG.sol 2DM2DG.out && echo '### 2DM2DG SUCCESS ###'
 # shellcheck disable=SC2046
 ${buildDir}/src/BTEcmd -x 1e-8 -t 8 -p 1 -d 2 -I 10000 -g 100 -b $(pwd)/tests/2DM1DG/inputbc.dat -m $(pwd)/tests/2DM1DG/band.dat > 2DM1DG.out
 cmp --silent tests/2DM1DG/2DM1DG.sol 2DM1DG.out && echo '### 2DM1DG SUCCESS ###' || echo '### 2DM1DG ERROR ###'
-
-rm *.out
