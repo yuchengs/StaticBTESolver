@@ -24,6 +24,7 @@
 #include "viennacl/compressed_matrix.hpp"
 #include "viennacl/linalg/prod.hpp"
 #include "viennacl/linalg/jacobi_precond.hpp"
+#include "viennacl/linalg/amg.hpp"
 #include "viennacl/linalg/bicgstab.hpp"
 #include "viennacl/linalg/cg.hpp"
 #include "viennacl/linalg/gmres.hpp"
@@ -304,6 +305,9 @@ double* StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, double* Val, st
     KSPSetOperators(ksp, A, A);
     KSPGetPC(ksp, &pc);
     PCSetType(pc, PCJACOBI);
+//    for mesh dimension 1, it appears ilu preconditioner works better than jacobi pc
+//    PCSetType(pc, PCILU);
+
 //    KSPSetType(ksp, KSPBCGS);
     KSPSetTolerances(ksp, 1e-9, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
 
@@ -798,7 +802,7 @@ void StaticBTESolver::_iteration(int max_iter) {
                 if (mesh->dim == 1) {
                     viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
                     viennacl::linalg::gmres_tag my_gmres(1e-9, 1000, 30);
-                    vsol = viennacl::linalg::solve(vKe, vRe, my_gmres);
+                    vsol = viennacl::linalg::solve(vKe, vRe, my_gmres, chow_patel_ilu);
 #ifdef USE_TIME
                     max_iter_num = std::max(max_iter_num, int(my_gmres.iters()));
                     max_iter_error = std::max(max_iter_error, my_gmres.error());
@@ -865,7 +869,7 @@ void StaticBTESolver::_iteration(int max_iter) {
             std::cout << "Iterative solver maximum error: " << max_iter_error << std::endl;
 #endif
         }
-        if (margin <= 0.0001) {
+        if (margin <= 0.00001) {
             if (this->world_rank == 0) {
                 std::cout << std::endl;
             }
