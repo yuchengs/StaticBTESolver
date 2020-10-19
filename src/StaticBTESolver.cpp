@@ -304,12 +304,11 @@ double* StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, double* Val, st
     KSPCreate(PETSC_COMM_SELF, &ksp);
     KSPSetOperators(ksp, A, A);
     KSPGetPC(ksp, &pc);
-    PCSetType(pc, PCJACOBI);
+//    PCSetType(pc, PCJACOBI);
 //    for mesh dimension 1, it appears ilu preconditioner works better than jacobi pc
-//    PCSetType(pc, PCILU);
-
+    PCSetType(pc, PCILU);
 //    KSPSetType(ksp, KSPBCGS);
-    KSPSetTolerances(ksp, 1e-9, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
+    KSPSetTolerances(ksp, 1e-6, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
 
     KSPSolve(ksp, b, x);
 
@@ -799,9 +798,11 @@ void StaticBTESolver::_iteration(int max_iter) {
                 auto solver_start = std::chrono::high_resolution_clock::now();
 #endif
 #ifdef USE_GPU
-                if (mesh->dim == 1) {
+                if (mesh->dim >= 1) {
+//                    viennacl::linalg::ilut_tag ilut_config;
+//                    viennacl::linalg::ilut_precond<viennacl::compressed_matrix<double>> vcl_ilut(vKe, ilut_config);
                     viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
-                    viennacl::linalg::gmres_tag my_gmres(1e-9, 1000, 30);
+                    viennacl::linalg::gmres_tag my_gmres(1e-6, 1000, 20);
                     vsol = viennacl::linalg::solve(vKe, vRe, my_gmres, chow_patel_ilu);
 #ifdef USE_TIME
                     max_iter_num = std::max(max_iter_num, int(my_gmres.iters()));
