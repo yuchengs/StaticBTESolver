@@ -6,7 +6,7 @@
 #include <chrono>
 #endif
 #ifdef USE_GPU
-#define VIENNACL_WITH_CUDA 1
+#include "bicgstab.hpp"
 #include <mpi.h>
 #if SIZE_MAX == UCHAR_MAX
    #define my_MPI_SIZE_T MPI_UNSIGNED_CHAR
@@ -19,17 +19,6 @@
 #elif SIZE_MAX == ULLONG_MAX
    #define my_MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
 #endif
-#include "viennacl/scalar.hpp"
-#include "viennacl/vector.hpp"
-#include "viennacl/compressed_matrix.hpp"
-#include "viennacl/linalg/prod.hpp"
-#include "viennacl/linalg/jacobi_precond.hpp"
-#include "viennacl/linalg/amg.hpp"
-#include "viennacl/linalg/bicgstab.hpp"
-#include "viennacl/linalg/cg.hpp"
-#include "viennacl/linalg/gmres.hpp"
-#include "viennacl/tools/timer.hpp"
-#include <fstream>
 #else
 #include <petscksp.h>
 #endif
@@ -130,7 +119,7 @@ void StaticBTESolver::_recover_temperature() {
     }
 }
 
-void StaticBTESolver::_get_Ke(int band_index, int dir_index, unsigned int* csrRowPtr, unsigned int* csrColInd, double* csrVal) {
+void StaticBTESolver::_get_Ke(int band_index, int dir_index, int* csrRowPtr, int* csrColInd, double* csrVal) {
     int csrRowPtr_iter = 0, csrColInd_iter = 0, csrVal_iter = 0;
     csrRowPtr[csrRowPtr_iter++] = 0;
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
@@ -170,8 +159,7 @@ void StaticBTESolver::_get_Ke(int band_index, int dir_index, unsigned int* csrRo
     }
 }
 
-std::vector<double> StaticBTESolver::_get_Re(int band_index, int dir_index) {
-    std::vector<double> Re(N_cell, 0);
+void StaticBTESolver::_get_Re(int band_index, int dir_index, double* Re) {
     for (int cell_index = 0; cell_index < N_cell; cell_index++) {
         for (int face_index = 0; face_index < N_face; face_index++) {
             if (dot_prod(direction_vectors[dir_index], cell_face_normal[cell_index][face_index]) >= 0) continue;
@@ -278,7 +266,6 @@ std::vector<double> StaticBTESolver::_get_Re(int band_index, int dir_index) {
                     cell_band_density[cell_index][band_index] * cell_volume[cell_index];
         }
     }
-    return Re;
 }
 #ifndef USE_GPU
 double* StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, double* Val, std::vector<double>& Re) {
@@ -712,12 +699,6 @@ void StaticBTESolver::_iteration(int max_iter) {
                   << "num_phi: " << num_phi << std::endl << std::endl;
     }
 
-#ifdef USE_GPU
-    viennacl::linalg::chow_patel_tag chow_patel_ilu_config;
-    chow_patel_ilu_config.sweeps(3);       // three nonlinear sweeps
-    chow_patel_ilu_config.jacobi_iters(2); // two Jacobi iterations per triangular 'solve' Rx=r
-#endif
-
     ee_curr.resize(N_band, nullptr);
     for (int band_index = 0; band_index < N_band; band_index++) {
         ee_curr[band_index] = new staticbtesolver::ContinuousArray(N_dir, N_cell);
@@ -735,18 +716,21 @@ void StaticBTESolver::_iteration(int max_iter) {
             ee_curr[band_index] = new staticbtesolver::ContinuousArray(N_dir, N_cell);
         }
 #ifdef USE_TIME
-        int max_iter_num = 0;
-        double max_iter_error = 0;
+//        int max_iter_num = 0;
+//        double max_iter_error = 0;
         auto get_Re_time = std::chrono::microseconds(0);
         auto get_Ke_time = std::chrono::microseconds(0);
         auto solver_time = std::chrono::microseconds(0);
         auto start = std::chrono::high_resolution_clock::now();
 #endif
+#ifdef USE_GPU
+        auto bicgstab_solver = new BICGSTAB(N_cell, 1000, 1e-9);
+#endif
         for (int band_index = 0; band_index < N_band; band_index++) {
             for (int dir_index = this->world_rank; dir_index < N_dir; dir_index += this->num_proc) {
 
-                auto csrRowPtr = new unsigned int[N_cell + 1];
-                auto csrColInd = new unsigned int[N_face * N_cell + 1];
+                auto csrRowPtr = new int[N_cell + 1];
+                auto csrColInd = new int[N_face * N_cell + 1];
                 auto csrVal = new double[N_face * N_cell + 1];
 #ifdef USE_TIME
                 auto _get_Ke_start = std::chrono::high_resolution_clock::now();
@@ -755,71 +739,23 @@ void StaticBTESolver::_iteration(int max_iter) {
 #ifdef USE_TIME
                 auto _get_Ke_end = std::chrono::high_resolution_clock::now();
 #endif
-                std::vector<double> Re = _get_Re(band_index, dir_index);
+                auto Re = new double[N_cell]();
+                _get_Re(band_index, dir_index, Re);
 #ifdef USE_TIME
                 auto _get_Re_end = std::chrono::high_resolution_clock::now();
                 get_Re_time += std::chrono::duration_cast<std::chrono::microseconds>(_get_Re_end - _get_Ke_end);
                 get_Ke_time += std::chrono::duration_cast<std::chrono::microseconds>(_get_Ke_end - _get_Ke_start);
 #endif
 #ifdef USE_GPU
-                unsigned int nnz = csrRowPtr[N_cell];
-
-//                std::ofstream outfile;
-//                outfile.open("csr.dat", std::ios::out | std::ios::trunc);
-//                for (int i = 0; i < N_cell + 1; i++) {
-//                    outfile << csrRowPtr[i] << " ";
-//                }
-//                outfile << std::endl;
-//                for (int i = 0; i < N_face * N_cell + 1; i++) {
-//                    outfile << csrColInd[i] << " ";
-//                }
-//                outfile << std::endl;
-//                for (int i = 0; i < N_face * N_cell + 1; i++) {
-//                    outfile << csrVal[i] << " ";
-//                }
-//                outfile << std::endl;
-//                outfile.close();
-//
-//                std::ofstream ofile;
-//                ofile.open("re.dat", std::ios::out | std::ios::trunc);
-//                for (int i = 0; i < N_cell; i++) {
-//                    ofile << Re[i] << " ";
-//                }
-//                ofile.close();
-//
-//                exit(0);
-                viennacl::compressed_matrix<double> vKe;
-                vKe.set(csrRowPtr, csrColInd, csrVal, N_cell, N_cell, nnz);
-                viennacl::vector<double> vRe(Re.size());
-                viennacl::copy(Re, vRe);
-                viennacl::vector<double> vsol;
+                int nnz = csrRowPtr[N_cell];
+                bicgstab_solver->init(csrRowPtr, csrColInd, csrVal, nnz, Re);
 #endif
 #ifdef USE_TIME
                 auto solver_start = std::chrono::high_resolution_clock::now();
 #endif
 #ifdef USE_GPU
-                if (mesh->dim >= 1) {
-//                    viennacl::linalg::ilut_tag ilut_config;
-//                    viennacl::linalg::ilut_precond<viennacl::compressed_matrix<double>> vcl_ilut(vKe, ilut_config);
-                    viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
-                    viennacl::linalg::gmres_tag my_gmres(1e-6, 1000, 20);
-                    vsol = viennacl::linalg::solve(vKe, vRe, my_gmres, chow_patel_ilu);
-#ifdef USE_TIME
-                    max_iter_num = std::max(max_iter_num, int(my_gmres.iters()));
-                    max_iter_error = std::max(max_iter_error, my_gmres.error());
-#endif
-                }
-                else {
-                    viennacl::linalg::chow_patel_ilu_precond<viennacl::compressed_matrix<double>> chow_patel_ilu(vKe, chow_patel_ilu_config);
-                    viennacl::linalg::bicgstab_tag my_bicgstab(1e-9, 1000, 100);
-                    vsol = viennacl::linalg::solve(vKe, vRe, my_bicgstab, chow_patel_ilu);
-#ifdef USE_TIME
-                    max_iter_num = std::max(max_iter_num, int(my_bicgstab.iters()));
-                    max_iter_error = std::max(max_iter_error, my_bicgstab.error());
-#endif
-                }
                 auto* sol = new double[N_cell];
-                viennacl::copy(vsol.begin(), vsol.end(), sol);
+                bicgstab_solver->solve(sol);
                 MPI_Barrier(MPI_COMM_WORLD);
 #else
                 double* sol = _solve_matrix((int*)csrRowPtr, (int*)csrColInd, csrVal, Re);
@@ -845,12 +781,16 @@ void StaticBTESolver::_iteration(int max_iter) {
 //                std::cout << "[" << band_index << "] Process " << this->world_rank << " takes " << std::chrono::duration_cast<std::chrono::milliseconds>(gather_end - gather_start).count() << "ms to gather" << std::endl;
 #endif
                 delete [] sol;
+                delete [] Re;
                 delete [] csrRowPtr;
                 delete [] csrColInd;
                 delete [] csrVal;
             }
             _get_cell_temperature(band_index);
         }
+#ifdef USE_GPU
+        delete bicgstab_solver;
+#endif
         _recover_temperature();
 
         double margin = _get_margin();
@@ -866,8 +806,8 @@ void StaticBTESolver::_iteration(int max_iter) {
             std::cout << "Time taken by get_Ke: " << 1.0 * get_Ke_time.count() / 1000 << " milliseconds" << std::endl;
             std::cout << "Time taken by get_Re: " << 1.0 * get_Re_time.count() / 1000 << " milliseconds" << std::endl;
             std::cout << "Time taken by iterative solver: " << 1.0 * solver_time.count() / 1000 << " milliseconds" << std::endl;
-            std::cout << "Iterative solver maximum iteration num: " << max_iter_num << std::endl;
-            std::cout << "Iterative solver maximum error: " << max_iter_error << std::endl;
+//            std::cout << "Iterative solver maximum iteration num: " << max_iter_num << std::endl;
+//            std::cout << "Iterative solver maximum error: " << max_iter_error << std::endl;
 #endif
         }
         if (margin <= 0.00001) {

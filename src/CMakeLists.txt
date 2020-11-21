@@ -11,12 +11,11 @@ else()
     find_package(PETSc REQUIRED)
 endif()
 
-
 add_library(BTEutility utility.cpp "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver/utility.h")
 target_include_directories(BTEutility PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes")
 target_compile_features(BTEutility PUBLIC cxx_std_14)
 
-add_library(BTEBand BTEBand.cpp "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver/BTEBand.h")
+add_library(BTEBand BTEBand.cpp "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver/BTEBand.h" ../includes/StaticBTESolver/staticBTESolver_bicgstab.hpp)
 target_include_directories(BTEBand PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes")
 target_link_libraries(BTEBand PUBLIC BTEutility)
 target_compile_features(BTEBand PUBLIC cxx_std_14)
@@ -47,6 +46,12 @@ if (USE_GPU)
     set_target_properties(StaticBTESolver
             PROPERTIES
             CUDA_SEPARABLE_COMPILATION on)
+
+    set_source_files_properties(main.cpp PROPERTIES LANGUAGE CUDA)
+    set_source_files_properties(bicgstab.hpp PROPERTIES LANGUAGE CUDA)
+    add_library(bicgstab bicgstab.hpp)
+    target_link_libraries(bicgstab PRIVATE CUDA::cudart CUDA::cusparse CUDA::cublas)
+
     if (USE_TIME)
         set_target_properties(StaticBTESolver
             PROPERTIES
@@ -57,10 +62,10 @@ if (USE_GPU)
                 COMPILE_DEFINITIONS "USE_GPU")
     endif()
     if (USE_GMSH)
-        target_link_libraries(StaticBTESolver PUBLIC BTEBand BTEBoundaryCondition BTEMesh BTEGeometry
+        target_link_libraries(StaticBTESolver PUBLIC bicgstab BTEBand BTEBoundaryCondition BTEMesh BTEGeometry
             PRIVATE MPI::MPI_CXX CUDA::cudart)
     else()
-        target_link_libraries(StaticBTESolver PUBLIC BTEBand BTEBoundaryCondition BTEMesh
+        target_link_libraries(StaticBTESolver PUBLIC bicgstab BTEBand BTEBoundaryCondition BTEMesh
                 PRIVATE MPI::MPI_CXX CUDA::cudart)
     endif()
 else()
