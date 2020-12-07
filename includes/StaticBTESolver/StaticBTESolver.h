@@ -5,10 +5,8 @@
 #ifndef BTESOLVER_STATICBTESOLVER_H
 #define BTESOLVER_STATICBTESOLVER_H
 
-#include <string>
 #include <vector>
 #include <memory>
-#include <unordered_set>
 #include "StaticBTESolver/BTEMesh.h"
 #include "StaticBTESolver/BTEBand.h"
 #include "StaticBTESolver/BTEBoundaryCondition.h"
@@ -65,7 +63,7 @@ class StaticBTESolver {
     void _postprocess();
 
 #ifndef USE_GPU
-    double* _solve_matrix(int* csrRowPtr, int* csrColInd, double* csrVal, std::vector<double>& Re);
+    double* _solve_matrix(int* csrRowPtr, int* csrColInd, double* csrVal, double* Re, double* sol);
 #else
     size_t print_host_mem();
     size_t print_device_mem();

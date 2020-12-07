@@ -5,6 +5,7 @@
 #include <iostream>
 #include <chrono>
 
+#define mmax(a, b) ((a)>(b) ? (a):(b))
 #define THREAD_ID threadIdx.x+blockIdx.x*blockDim.x
 #define THREAD_COUNT gridDim.x*blockDim.x
 
@@ -73,7 +74,6 @@ public:
         this->cublas_latest_status = cublasCreate(&this->cublas_handle);
         assert(CUBLAS_STATUS_SUCCESS == this->cublas_latest_status);
 
-
         this->cuda_latest_status = cudaMalloc((void**)&dev_x, sizeof(double) * this->dim);
         assert(cudaSuccess == this->cuda_latest_status);
         this->cuda_latest_status = cudaMalloc((void**)&dev_r, sizeof(double) * this->dim);
@@ -121,7 +121,7 @@ public:
         assert(cudaSuccess == this->cuda_latest_status);
         double* jacobi = nullptr;
         jacobi = (double*)malloc(sizeof(double) * this->dim);
-        memset(jacobi, 0, sizeof(double) & this->dim);
+        memset(jacobi, 0, sizeof(double) * this->dim);
         for (int row = 0; row < this->dim; row++){
             for(int j = csrRowPtr[row]; j < csrRowPtr[row + 1]; j++) {
                 if (csrColInd[j] == row){
@@ -159,7 +159,6 @@ public:
         nrmr0 = sqrt(nrmr0);
         //cublasDnrm2(this->cublas_handle, this->dim, dev_r, 1, &nrmr0);
         nrmr = nrmr0;
-        // TODO check abs tol
         cudaMemset(dev_q, 0, sizeof(double) * this->dim);
         double rhop = 1, rho = 1, omega = 1.0, alpha = 1.0, neg_alpha, neg_omega;
         double temp, temp2, beta;
@@ -189,7 +188,6 @@ public:
             // ### 15: M \hat{p} = p
             pre_spmv<<<24, 1024>>>(this->dim, this->dev_jacobi, dev_p, dev_ph);
             // ### 16: q = A \hat{p}
-//            csr_spmv<<<24, 1024>>>(this->dim, dev_q, dev_ph, this->dev_A_csrRowPtr, this->dev_A_csrColInd, this->dev_A_csrVal);
             size_t bufferSizeInBytes2;
             void* buffer2;
             cusparseCsrmvEx_bufferSize(this->cusparse_handle,
@@ -321,9 +319,8 @@ public:
         if (this->cublas_handle) cublasDestroy(this->cublas_handle);
         cudaDeviceReset();
     }
-//    void solve(double* x) {
+//    void solve_ilu(double* x) {
 //        const double one = 1.0;
-//        const double neg_one = -1.0;
 //        const double zero = 0.0;
 //        // #01: ilu precondition
 //        // ## declare and allocate LU memory
@@ -426,18 +423,9 @@ public:
 //        // ########################################################################################################
 //        // ## declare and initialize dev_x and dev_r
 //        // TODO: should have copied initial x from host
-//        double* dev_x = nullptr;
-//        this->cuda_latest_status = cudaMalloc((void**)&dev_x, sizeof(double) * this->dim);
-//        assert(cudaSuccess == this->cuda_latest_status);
-//        double* dev_r = nullptr;
-//        this->cuda_latest_status = cudaMalloc((void**)&dev_r, sizeof(double) * this->dim);
-//        assert(cudaSuccess == this->cuda_latest_status);
 //        this->cuda_latest_status = cudaMemset(dev_x, 0, sizeof(double) * this->dim);
 //        assert(cudaSuccess == this->cuda_latest_status);
 //        this->cuda_latest_status = cudaMemset(dev_r, 0, sizeof(double) * this->dim);
-//        assert(cudaSuccess == this->cuda_latest_status);
-//        double* dev_t = nullptr;
-//        this->cuda_latest_status = cudaMalloc((void**)&dev_t, sizeof(double) * this->dim);
 //        assert(cudaSuccess == this->cuda_latest_status);
 //
 //        // ### 1: r = b - A x
@@ -475,24 +463,13 @@ public:
 ////        cublasDscal(this->cublas_handle, this->dim, &neg_one, dev_r, 1);
 //        cublasDaxpy(this->cublas_handle, this->dim, &one, this->dev_b, 1, dev_r, 1);
 //        // ### 2: p = r and \tilde{r} = r
-//        double* dev_p = nullptr;
-//        this->cuda_latest_status = cudaMalloc((void**)&dev_p, sizeof(double) * this->dim);
-//        assert(cudaSuccess == this->cuda_latest_status);
-//        double* dev_rw = nullptr;
-//        this->cuda_latest_status = cudaMalloc((void**)&dev_rw, sizeof(double) * this->dim);
-//        assert(cudaSuccess == this->cuda_latest_status);
+//
 //        cublasDcopy(this->cublas_handle, this->dim, dev_r, 1, dev_p, 1);
 //        cublasDcopy(this->cublas_handle, this->dim, dev_r, 1, dev_rw, 1);
 //        double nrmr0, nrmr;
 //        cublasDnrm2(this->cublas_handle, this->dim, dev_r, 1, &nrmr0);
 //        nrmr = nrmr0;
 //        // TODO check abs tol
-//        double* dev_q = nullptr;
-//        this->cuda_latest_status = cudaMalloc((void**)&dev_q, sizeof(double) * this->dim);
-//        assert(cudaSuccess == this->cuda_latest_status);
-//        double* dev_ph = nullptr;
-//        this->cuda_latest_status = cudaMalloc((void**)&dev_ph, sizeof(double) * this->dim);
-//        assert(cudaSuccess == this->cuda_latest_status);
 //        double* dev_s = nullptr;
 //        this->cuda_latest_status = cudaMalloc((void**)&dev_s, sizeof(double) * this->dim);
 //        assert(cudaSuccess == this->cuda_latest_status);
@@ -638,7 +615,9 @@ public:
 //            neg_omega = -omega;
 //            cublasDaxpy(this->cublas_handle, this->dim, &neg_omega, dev_t, 1, dev_r, 1);
 //            // check for convergence
-//            cublasDnrm2(this->cublas_handle, this->dim, dev_r, 1, &nrmr);
+//            cublasDdot(this->cublas_handle, this->dim, dev_r, 1, dev_r, 1, &nrmr);
+//            nrmr = sqrt(nrmr);
+//            //cublasDnrm2(this->cublas_handle, this->dim, dev_r, 1, &nrmr);
 //            if (nrmr / nrmr0 < tol) {
 //                break;
 //            }
@@ -646,14 +625,7 @@ public:
 //        std::cout << nrmr << " / " << nrmr0 << " = " << nrmr / nrmr0 << std::endl;
 //        cudaMemcpy(x, dev_x, this->dim * sizeof(double), cudaMemcpyDeviceToHost);
 //        // clean up
-//        if (dev_t) cudaFree(dev_t);
 //        if (dev_s) cudaFree(dev_s);
-//        if (dev_ph) cudaFree(dev_ph);
-//        if (dev_q) cudaFree(dev_q);
-//        if (dev_p) cudaFree(dev_p);
-//        if (dev_rw) cudaFree(dev_rw);
-//        if (dev_x) cudaFree(dev_x);
-//        if (dev_r) cudaFree(dev_r);
 //        cusparseDestroyMatDescr(descrM);
 //        cusparseDestroyMatDescr(descrL);
 //        cusparseDestroyMatDescr(descrU);

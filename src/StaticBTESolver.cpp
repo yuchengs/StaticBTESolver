@@ -2,12 +2,12 @@
 // Created by Yucheng Shi on 7/8/20.
 //
 #include "StaticBTESolver.h"
+#include <mpi.h>
 #ifdef USE_TIME
 #include <chrono>
 #endif
 #ifdef USE_GPU
 #include "bicgstab.hpp"
-#include <mpi.h>
 #if SIZE_MAX == UCHAR_MAX
    #define my_MPI_SIZE_T MPI_UNSIGNED_CHAR
 #elif SIZE_MAX == USHRT_MAX
@@ -268,7 +268,7 @@ void StaticBTESolver::_get_Re(int band_index, int dir_index, double* Re) {
     }
 }
 #ifndef USE_GPU
-double* StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, double* Val, std::vector<double>& Re) {
+double* StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, double* Val, double* Re, double* sol) {
     Mat            A;
     Vec            b, x;
     KSP            ksp;
@@ -293,21 +293,18 @@ double* StaticBTESolver::_solve_matrix(int* RowPtr, int* ColInd, double* Val, st
     KSPGetPC(ksp, &pc);
 //    PCSetType(pc, PCJACOBI);
 //    for mesh dimension 1, it appears ilu preconditioner works better than jacobi pc
-    PCSetType(pc, PCILU);
+//    PCSetType(pc, PCILU);
 //    KSPSetType(ksp, KSPBCGS);
-    KSPSetTolerances(ksp, 1e-6, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
+    KSPSetTolerances(ksp, 1e-9, PETSC_DEFAULT, PETSC_DEFAULT, 1000);
 
     KSPSolve(ksp, b, x);
 
-    auto* res = new double[N_cell];
-    VecGetValues(x, N_cell, indices, &res[0]);
+    VecGetValues(x, N_cell, indices, &sol[0]);
     delete [] indices;
     VecDestroy(&x);
     VecDestroy(&b);
     MatDestroy(&A);
     KSPDestroy(&ksp);
-
-    return res;
 }
 #endif
 
@@ -719,8 +716,6 @@ void StaticBTESolver::_iteration(int max_iter) {
             ee_curr[band_index] = new staticbtesolver::ContinuousArray(N_dir, N_cell);
         }
 #ifdef USE_TIME
-//        int max_iter_num = 0;
-//        double max_iter_error = 0;
         auto get_Re_time = std::chrono::microseconds(0);
         auto get_Ke_time = std::chrono::microseconds(0);
         auto solver_time = std::chrono::microseconds(0);
@@ -740,23 +735,20 @@ void StaticBTESolver::_iteration(int max_iter) {
                 auto _get_Ke_end = std::chrono::high_resolution_clock::now();
                 get_Ke_time += std::chrono::duration_cast<std::chrono::microseconds>(_get_Ke_end - _get_Ke_start);
 #endif
-                auto Re = new double[N_cell]();
+                auto* Re = new double[N_cell]();
                 _get_Re(band_index, dir_index, Re);
 #ifdef USE_TIME
                 auto _get_Re_end = std::chrono::high_resolution_clock::now();
                 get_Re_time += std::chrono::duration_cast<std::chrono::microseconds>(_get_Re_end - _get_Ke_end);
-#endif
-#ifdef USE_GPU
-                int nnz = csrRowPtr[N_cell];
-                auto* sol = new double[N_cell];
-#ifdef USE_TIME
                 auto solver_start = std::chrono::high_resolution_clock::now();
 #endif
+                auto* sol = new double[N_cell];
+#ifdef USE_GPU
+                int nnz = csrRowPtr[N_cell];
                 bicgstab_solver->init(csrRowPtr, csrColInd, csrVal, nnz, Re);
                 bicgstab_solver->solve(sol);
 #else
-                double* sol = _solve_matrix((int*)csrRowPtr, (int*)csrColInd, csrVal, Re);
-                MPI_Barrier(MPI_COMM_WORLD);
+                _solve_matrix(csrRowPtr, csrColInd, csrVal, Re, sol);
 #endif
 #ifdef USE_TIME
                 auto solver_end = std::chrono::high_resolution_clock::now();
@@ -801,8 +793,6 @@ void StaticBTESolver::_iteration(int max_iter) {
             std::cout << "Time taken by get_Ke: " << 1.0 * get_Ke_time.count() / 1000 << " milliseconds" << std::endl;
             std::cout << "Time taken by get_Re: " << 1.0 * get_Re_time.count() / 1000 << " milliseconds" << std::endl;
             std::cout << "Time taken by iterative solver: " << 1.0 * solver_time.count() / 1000 << " milliseconds" << std::endl;
-//            std::cout << "Iterative solver maximum iteration num: " << max_iter_num << std::endl;
-//            std::cout << "Iterative solver maximum error: " << max_iter_error << std::endl;
 #endif
         }
         if (margin <= 0.00001) {
@@ -812,7 +802,9 @@ void StaticBTESolver::_iteration(int max_iter) {
             break;
         }
     }
+#ifdef USE_GPU
     delete bicgstab_solver;
+#endif
 }
 
 void StaticBTESolver::_postprocess() {
