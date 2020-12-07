@@ -17,6 +17,15 @@ __global__ void gpu_VVequalrhat(int num, double *result, double * inval){
     }
 }
 
+__global__ void csr_spmv (int n, double* dst_ptr, double* dense_ptr, int* csrRowPtr, int* csrColInd, double* csrVal) {
+    for (int row=THREAD_ID; row<n; row+=THREAD_COUNT){
+        dst_ptr[row] = 0;
+        for (int k=csrRowPtr[row]; k<csrRowPtr[row + 1]; k++){
+            dst_ptr[row] += dense_ptr[csrColInd[k]] * csrVal[k];
+        }
+    }
+}
+
 void print(double* dev_ptr, int sz) {
     double* host_ptr;
     host_ptr = (double*)malloc(sizeof(double) * sz);
@@ -140,8 +149,6 @@ public:
         // ########################################################################################################
         // #02: bicgstab begins
         // ########################################################################################################
-        // ## declare and initialize dev_x and dev_r
-        // TODO: should have copied initial x from host
 
         this->cuda_latest_status = cudaMemset(dev_x, 0, sizeof(double) * this->dim);
         assert(cudaSuccess == this->cuda_latest_status);
@@ -188,6 +195,7 @@ public:
             // ### 15: M \hat{p} = p
             pre_spmv<<<24, 1024>>>(this->dim, this->dev_jacobi, dev_p, dev_ph);
             // ### 16: q = A \hat{p}
+//            csr_spmv<<<24, 1024>>>(this->dim, dev_q, dev_ph, this->dev_A_csrRowPtr, this->dev_A_csrColInd, this->dev_A_csrVal);
             size_t bufferSizeInBytes2;
             void* buffer2;
             cusparseCsrmvEx_bufferSize(this->cusparse_handle,
@@ -243,6 +251,7 @@ public:
             pre_spmv<<<24, 1024>>>(this->dim, this->dev_jacobi, dev_r, dev_z);
 
             // ### 24: t = A \hat{s}
+//            csr_spmv<<<24, 1024>>>(this->dim, dev_t, dev_z, this->dev_A_csrRowPtr, this->dev_A_csrColInd, this->dev_A_csrVal);
             size_t bufferSizeInBytes3;
             void* buffer3;
             cusparseCsrmvEx_bufferSize(this->cusparse_handle,
@@ -293,9 +302,7 @@ public:
                 break;
             }
         }
-        //std::cout << nrmr << " / " << nrmr0 << " = " << nrmr / nrmr0 << std::endl;
         cudaMemcpy(x, dev_x, this->dim * sizeof(double), cudaMemcpyDeviceToHost);
-        // clean up
     }
     ~BICGSTAB() {
         if (dev_t) cudaFree(dev_t);

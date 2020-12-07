@@ -738,25 +738,22 @@ void StaticBTESolver::_iteration(int max_iter) {
                 _get_Ke(band_index, dir_index, csrRowPtr, csrColInd, csrVal);
 #ifdef USE_TIME
                 auto _get_Ke_end = std::chrono::high_resolution_clock::now();
+                get_Ke_time += std::chrono::duration_cast<std::chrono::microseconds>(_get_Ke_end - _get_Ke_start);
 #endif
                 auto Re = new double[N_cell]();
                 _get_Re(band_index, dir_index, Re);
 #ifdef USE_TIME
                 auto _get_Re_end = std::chrono::high_resolution_clock::now();
                 get_Re_time += std::chrono::duration_cast<std::chrono::microseconds>(_get_Re_end - _get_Ke_end);
-                get_Ke_time += std::chrono::duration_cast<std::chrono::microseconds>(_get_Ke_end - _get_Ke_start);
 #endif
 #ifdef USE_GPU
                 int nnz = csrRowPtr[N_cell];
-                bicgstab_solver->init(csrRowPtr, csrColInd, csrVal, nnz, Re);
-#endif
+                auto* sol = new double[N_cell];
 #ifdef USE_TIME
                 auto solver_start = std::chrono::high_resolution_clock::now();
 #endif
-#ifdef USE_GPU
-                auto* sol = new double[N_cell];
+                bicgstab_solver->init(csrRowPtr, csrColInd, csrVal, nnz, Re);
                 bicgstab_solver->solve(sol);
-                MPI_Barrier(MPI_COMM_WORLD);
 #else
                 double* sol = _solve_matrix((int*)csrRowPtr, (int*)csrColInd, csrVal, Re);
                 MPI_Barrier(MPI_COMM_WORLD);
@@ -768,6 +765,7 @@ void StaticBTESolver::_iteration(int max_iter) {
                 solver_time += std::chrono::duration_cast<std::chrono::microseconds>(solver_end - solver_start);
                 auto gather_start = std::chrono::high_resolution_clock::now();
 #endif
+                MPI_Barrier(MPI_COMM_WORLD);
                 MPI_Allgather(sol,
                               N_cell,
                               MPI_DOUBLE,
@@ -788,13 +786,13 @@ void StaticBTESolver::_iteration(int max_iter) {
             }
             _get_cell_temperature(band_index);
         }
-        _recover_temperature();
-
-        double margin = _get_margin();
 #ifdef USE_TIME
         auto time_end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_start);
 #endif
+        _recover_temperature();
+
+        double margin = _get_margin();
         if (this->world_rank == 0) {
             std::cout << "----------------------------------------------------------------------------------" << std::endl;
             std::cout << "Iteration #" << iter_index << "\t Margin per band per cell: " << margin << std::endl;
