@@ -100,6 +100,7 @@ public:
                 }
             }
         }
+        if (this->dev_jacobi) cudaFree(this->dev_jacobi);
         cudaMalloc((void**)&this->dev_jacobi, sizeof(double) * this->dim);
         cudaMemcpy(this->dev_jacobi, jacobi, sizeof(double) * this->dim, cudaMemcpyHostToDevice);
         free(jacobi);

@@ -15,7 +15,7 @@ add_library(BTEutility utility.cpp "${StaticBTESolver_SOURCE_DIR}/includes/Stati
 target_include_directories(BTEutility PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes")
 target_compile_features(BTEutility PUBLIC cxx_std_14)
 
-add_library(BTEBand BTEBand.cpp "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver/BTEBand.h" ../includes/StaticBTESolver/staticBTESolver_bicgstab.hpp)
+add_library(BTEBand BTEBand.cpp "${StaticBTESolver_SOURCE_DIR}/includes/StaticBTESolver/BTEBand.h")
 target_include_directories(BTEBand PUBLIC "${StaticBTESolver_SOURCE_DIR}/includes")
 target_link_libraries(BTEBand PUBLIC BTEutility)
 target_compile_features(BTEBand PUBLIC cxx_std_14)

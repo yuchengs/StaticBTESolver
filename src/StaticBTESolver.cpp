@@ -698,6 +698,9 @@ void StaticBTESolver::_iteration(int max_iter) {
                   << "num_theta: " << num_theta << std::endl
                   << "num_phi: " << num_phi << std::endl << std::endl;
     }
+#ifdef USE_GPU
+    auto bicgstab_solver = new BICGSTAB(N_cell, 1000, 1e-9);
+#endif
 
     ee_curr.resize(N_band, nullptr);
     for (int band_index = 0; band_index < N_band; band_index++) {
@@ -722,9 +725,6 @@ void StaticBTESolver::_iteration(int max_iter) {
         auto get_Ke_time = std::chrono::microseconds(0);
         auto solver_time = std::chrono::microseconds(0);
         auto start = std::chrono::high_resolution_clock::now();
-#endif
-#ifdef USE_GPU
-        auto bicgstab_solver = new BICGSTAB(N_cell, 1000, 1e-9);
 #endif
         for (int band_index = 0; band_index < N_band; band_index++) {
             for (int dir_index = this->world_rank; dir_index < N_dir; dir_index += this->num_proc) {
@@ -788,9 +788,6 @@ void StaticBTESolver::_iteration(int max_iter) {
             }
             _get_cell_temperature(band_index);
         }
-#ifdef USE_GPU
-        delete bicgstab_solver;
-#endif
         _recover_temperature();
 
         double margin = _get_margin();
@@ -817,6 +814,7 @@ void StaticBTESolver::_iteration(int max_iter) {
             break;
         }
     }
+    delete bicgstab_solver;
 }
 
 void StaticBTESolver::_postprocess() {

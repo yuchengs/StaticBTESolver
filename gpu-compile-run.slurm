@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=2dm2dg-case5
+#SBATCH --job-name=develop-test
 #SBATCH --partition=dgx2
 #SBATCH --output=%j.out
 #SBATCH --error=%j.err
@@ -8,13 +8,11 @@
 #SBATCH -N 1
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks-per-node 1
-#SBATCH --mail-type=end
-#SBATCH --mail-user=youremail
 
 module purge
 module load gcc/8.3.0-gcc-4.8.5
 module load openmpi/3.1.5-gcc-8.3.0
-module load cuda/10.1.243-gcc-8.3.0
+module load cuda/10.2.89-gcc-8.3.0
 
 rm -rf gpu-build
 cmake3 -S. -Bgpu-build -DCMAKE_BUILD_TYPE=Release -DUSE_GPU=on
