@@ -16,3 +16,6 @@ docs/html/
 gpu-build/
 cpu-build
 html/
+tests/*
+test
+*.txt
