@@ -42,6 +42,14 @@ private:
     cublasStatus_t cublas_latest_status = CUBLAS_STATUS_SUCCESS;
     cudaError_t cuda_latest_status = cudaSuccess;
 
+    double* dev_x = nullptr;
+    double* dev_r = nullptr;
+    double* dev_ph = nullptr;
+    double* dev_t = nullptr;
+    double* dev_z = nullptr;
+    double* dev_p = nullptr;
+    double* dev_q = nullptr;
+    double* dev_rw = nullptr;
     // temp data
     cusparseMatDescr_t descrA = nullptr;
     int* dev_A_csrRowPtr = nullptr;
@@ -63,6 +71,26 @@ public:
         // cublas
         this->cublas_latest_status = cublasCreate(&this->cublas_handle);
         assert(CUBLAS_STATUS_SUCCESS == this->cublas_latest_status);
+
+
+        this->cuda_latest_status = cudaMalloc((void**)&dev_x, sizeof(double) * this->dim);
+        assert(cudaSuccess == this->cuda_latest_status);
+        this->cuda_latest_status = cudaMalloc((void**)&dev_r, sizeof(double) * this->dim);
+        assert(cudaSuccess == this->cuda_latest_status);
+
+        this->cuda_latest_status = cudaMalloc((void**)&dev_t, sizeof(double) * this->dim);
+        assert(cudaSuccess == this->cuda_latest_status);
+        this->cuda_latest_status = cudaMalloc((void**)&dev_ph, sizeof(double) * this->dim);
+        assert(cudaSuccess == this->cuda_latest_status);
+        this->cuda_latest_status = cudaMalloc((void**)&dev_z, sizeof(double) * this->dim);
+        assert(cudaSuccess == this->cuda_latest_status);
+
+        this->cuda_latest_status = cudaMalloc((void**)&dev_p, sizeof(double) * this->dim);
+        assert(cudaSuccess == this->cuda_latest_status);
+        this->cuda_latest_status = cudaMalloc((void**)&dev_rw, sizeof(double) * this->dim);
+        assert(cudaSuccess == this->cuda_latest_status);
+        this->cuda_latest_status = cudaMalloc((void**)&dev_q, sizeof(double) * this->dim);
+        assert(cudaSuccess == this->cuda_latest_status);
     }
     void init(int* csrRowPtr, int* csrColInd, double* csrVal, int nnz, double* b) {
         this->A_nnz = nnz;
@@ -114,44 +142,22 @@ public:
         // ########################################################################################################
         // ## declare and initialize dev_x and dev_r
         // TODO: should have copied initial x from host
-        double* dev_x = nullptr;
-        this->cuda_latest_status = cudaMalloc((void**)&dev_x, sizeof(double) * this->dim);
-        assert(cudaSuccess == this->cuda_latest_status);
-        double* dev_r = nullptr;
-        this->cuda_latest_status = cudaMalloc((void**)&dev_r, sizeof(double) * this->dim);
-        assert(cudaSuccess == this->cuda_latest_status);
+
         this->cuda_latest_status = cudaMemset(dev_x, 0, sizeof(double) * this->dim);
         assert(cudaSuccess == this->cuda_latest_status);
         this->cuda_latest_status = cudaMemset(dev_r, 0, sizeof(double) * this->dim);
         assert(cudaSuccess == this->cuda_latest_status);
-        double* dev_t = nullptr;
-        this->cuda_latest_status = cudaMalloc((void**)&dev_t, sizeof(double) * this->dim);
-        assert(cudaSuccess == this->cuda_latest_status);
-        double* dev_ph = nullptr;
-        this->cuda_latest_status = cudaMalloc((void**)&dev_ph, sizeof(double) * this->dim);
-        assert(cudaSuccess == this->cuda_latest_status);
-        double* dev_z = nullptr;
-        this->cuda_latest_status = cudaMalloc((void**)&dev_z, sizeof(double) * this->dim);
-        assert(cudaSuccess == this->cuda_latest_status);
 
         cublasDaxpy(this->cublas_handle, this->dim, &one, this->dev_b, 1, dev_r, 1);
         // ### 2: p = r and \tilde{r} = r
-        double* dev_p = nullptr;
-        this->cuda_latest_status = cudaMalloc((void**)&dev_p, sizeof(double) * this->dim);
-        assert(cudaSuccess == this->cuda_latest_status);
         cudaMemset(dev_p, 0, sizeof(double) * this->dim);
-        double* dev_rw = nullptr;
-        this->cuda_latest_status = cudaMalloc((void**)&dev_rw, sizeof(double) * this->dim);
-        assert(cudaSuccess == this->cuda_latest_status);
         cublasDcopy(this->cublas_handle, this->dim, dev_r, 1, dev_p, 1);
         cublasDcopy(this->cublas_handle, this->dim, dev_r, 1, dev_rw, 1);
         double nrmr0, nrmr;
         cublasDnrm2(this->cublas_handle, this->dim, dev_r, 1, &nrmr0);
         nrmr = nrmr0;
         // TODO check abs tol
-        double* dev_q = nullptr;
-        this->cuda_latest_status = cudaMalloc((void**)&dev_q, sizeof(double) * this->dim);
-        assert(cudaSuccess == this->cuda_latest_status);
+
         cudaMemset(dev_q, 0, sizeof(double) * this->dim);
 
         double rhop = 1, rho = 1, omega = 1.0, alpha = 1.0, neg_alpha, neg_omega;
@@ -290,6 +296,8 @@ public:
         //std::cout << nrmr << " / " << nrmr0 << " = " << nrmr / nrmr0 << std::endl;
         cudaMemcpy(x, dev_x, this->dim * sizeof(double), cudaMemcpyDeviceToHost);
         // clean up
+    }
+    ~BICGSTAB() {
         if (dev_t) cudaFree(dev_t);
         if (dev_z) cudaFree(dev_z);
         if (dev_ph) cudaFree(dev_ph);
@@ -298,8 +306,7 @@ public:
         if (dev_rw) cudaFree(dev_rw);
         if (dev_x) cudaFree(dev_x);
         if (dev_r) cudaFree(dev_r);
-    }
-    ~BICGSTAB() {
+
         if (this->dev_jacobi) cudaFree(this->dev_jacobi);
         if (this->dev_A_csrRowPtr) cudaFree(this->dev_A_csrRowPtr);
         if (this->dev_A_csrColInd) cudaFree(this->dev_A_csrColInd);
