@@ -3,6 +3,7 @@
 #include <cusparse_v2.h>
 #include <cublas_v2.h>
 #include <iostream>
+#include <chrono>
 
 #define THREAD_ID threadIdx.x+blockIdx.x*blockDim.x
 #define THREAD_COUNT gridDim.x*blockDim.x
@@ -14,15 +15,6 @@ __global__ void pre_spmv(int n, const double *precondition, const double *vec, d
 __global__ void gpu_VVequalrhat(int num, double *result, double * inval){
     for(unsigned int i = THREAD_ID; i < num; i += THREAD_COUNT) {
         result[i] = inval[i] * 6.8 + 0.6;
-    }
-}
-
-__global__ void csr_spmv (int n, double* dst_ptr, double* dense_ptr, int* csrRowPtr, int* csrColInd, double* csrVal) {
-    for (int row=THREAD_ID; row<n; row+=THREAD_COUNT){
-        dst_ptr[row] = 0;
-        for (int k=csrRowPtr[row]; k<csrRowPtr[row + 1]; k++){
-            dst_ptr[row] += dense_ptr[csrColInd[k]] * csrVal[k];
-        }
     }
 }
 
@@ -144,6 +136,7 @@ public:
     }
 
     void solve(double* x) {
+        auto start_solve = std::chrono::high_resolution_clock::now();
         const double one = 1.0;
         const double zero = 0.0;
         // ########################################################################################################
@@ -158,15 +151,16 @@ public:
         cublasDaxpy(this->cublas_handle, this->dim, &one, this->dev_b, 1, dev_r, 1);
         // ### 2: p = r and \tilde{r} = r
         cudaMemset(dev_p, 0, sizeof(double) * this->dim);
+
         cublasDcopy(this->cublas_handle, this->dim, dev_r, 1, dev_p, 1);
         cublasDcopy(this->cublas_handle, this->dim, dev_r, 1, dev_rw, 1);
         double nrmr0, nrmr;
-        cublasDnrm2(this->cublas_handle, this->dim, dev_r, 1, &nrmr0);
+        cublasDdot(this->cublas_handle, this->dim, dev_r, 1, dev_r, 1, &nrmr0);
+        nrmr0 = sqrt(nrmr0);
+        //cublasDnrm2(this->cublas_handle, this->dim, dev_r, 1, &nrmr0);
         nrmr = nrmr0;
         // TODO check abs tol
-
         cudaMemset(dev_q, 0, sizeof(double) * this->dim);
-
         double rhop = 1, rho = 1, omega = 1.0, alpha = 1.0, neg_alpha, neg_omega;
         double temp, temp2, beta;
         for (int i = 1; i <= this->max_iters; i++) {
@@ -251,7 +245,6 @@ public:
             pre_spmv<<<24, 1024>>>(this->dim, this->dev_jacobi, dev_r, dev_z);
 
             // ### 24: t = A \hat{s}
-//            csr_spmv<<<24, 1024>>>(this->dim, dev_t, dev_z, this->dev_A_csrRowPtr, this->dev_A_csrColInd, this->dev_A_csrVal);
             size_t bufferSizeInBytes3;
             void* buffer3;
             cusparseCsrmvEx_bufferSize(this->cusparse_handle,
@@ -283,7 +276,6 @@ public:
                             CUDA_R_64F,
                             buffer3);
             cudaFree(buffer3);
-
             // ### 25: \omega = (t^T s) / (t^T t)
             cublasDdot(this->cublas_handle, this->dim, dev_t, 1, dev_r, 1, &temp);
             cublasDdot(this->cublas_handle, this->dim, dev_t, 1, dev_t, 1, &temp2);
@@ -297,7 +289,11 @@ public:
             neg_omega = -omega;
             cublasDaxpy(this->cublas_handle, this->dim, &neg_omega, dev_t, 1, dev_r, 1);
             // ### 20: check for convergence
-            cublasDnrm2(this->cublas_handle, this->dim, dev_r, 1, &nrmr);
+            cublasDdot(this->cublas_handle, this->dim, dev_r, 1, dev_r, 1, &nrmr);
+            nrmr = sqrt(nrmr);
+//            double nr = 0;
+//            cublasDnrm2(this->cublas_handle, this->dim, dev_r, 1, &nr);
+//            std::cout << nr << " " << nrmr << std::endl;
             if (nrmr / nrmr0 < this->tol) {
                 break;
             }
